@@ -14,7 +14,7 @@ Route::post('/password/reset', [FirebaseAuthController::class, 'resetPassword'])
 Route::post('/google/login', [FirebaseAuthController::class, 'googleLogin']);
 Route::post('/login', [FirebaseAuthController::class, 'login']);
 
-Route::middleware(['firebase.auth', 'firebase.sync'])->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [FirebaseAuthController::class, 'me']);
     Route::post('/logout', [FirebaseAuthController::class, 'logout']);
     Route::delete('/delete', [FirebaseAuthController::class, 'destroy']);

@@ -5,17 +5,19 @@ namespace App\Http\Controllers\Api\V1\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Kreait\Firebase\Auth as FirebaseAuth;
 use Illuminate\Support\Facades\Validator;
+use App\Services\FirebaseService;
 
 class FirebaseAuthController extends Controller
 {
+
     protected $auth;
 
-    public function __construct(FirebaseAuth $auth)
+    public function __construct(FirebaseService $firebase)
     {
-        $this->auth = $auth;
+        $this->auth = $firebase->getAuth();
     }
+    
 
     public function register(Request $request)
     {
@@ -30,28 +32,27 @@ class FirebaseAuthController extends Controller
         }
 
         try {
+
             $firebaseUser = $this->auth->createUser([
                 'email' => $request->email,
                 'password' => $request->password,
                 'displayName' => $request->name,
             ]);
 
-            $token = $this->auth->createCustomToken($firebaseUser->uid);
-
-            $this->auth->sendEmailVerificationLink($request->email);
-
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'firebase_uid' => $firebaseUser->uid,
+                'password' => bcrypt($request->password),
             ]);
 
+            $token = $user->createToken('auth_token')->plainTextToken;
             return response()->json([
-                'message' => 'User registered successfully!',
+                'message' => 'Registration successful',
+                'access_token' => $token,
+                'token_type' => 'Bearer',
                 'user' => $user,
-                'firebase_token' => $token->toString(),
             ], 201);
-
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -59,34 +60,44 @@ class FirebaseAuthController extends Controller
 
     public function login(Request $request)
     {
-        $idToken = $request->bearerToken();
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
 
-        if (!$idToken) {
-            return response()->json(['error' => 'Token missing'], 401);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
         try {
-            $verified = $this->auth->verifyIdToken($idToken);
-            $uid = $verified->claims()->get('sub');
-            $firebaseUser = $this->auth->getUser($uid);
+            $signInResult = $this->auth->signInWithEmailAndPassword(
+                $request->email,
+                $request->password
+            );
 
-            if (!$firebaseUser->emailVerified) {
-                return response()->json(['error' => 'Email not verified'], 403);
+            $firebaseUid = $signInResult->firebaseUserId();
+
+            $user = User::where('firebase_uid', $firebaseUid)->first();
+            if (!$user) {
+                return response()->json(['error' => 'User not found in DB'], 404);
             }
 
-            $user = User::firstOrCreate(
-                ['firebase_uid' => $uid],
-                ['name' => $firebaseUser->displayName ?? 'Unknown', 'email' => $firebaseUser->email]
-            );
+            $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
                 'message' => 'Login successful',
+                'access_token' => $token,
+                'token_type' => 'Bearer',
                 'user' => $user,
-            ]);
+            ], 200);
+
+        } catch (\Kreait\Firebase\Exception\Auth\InvalidPassword $e) {
+            return response()->json(['error' => 'Invalid credentials'], 401);
         } catch (\Throwable $e) {
-            return response()->json(['error' => 'Invalid token: '.$e->getMessage()], 401);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
 
     public function me(Request $request)
     {
@@ -137,24 +148,34 @@ class FirebaseAuthController extends Controller
         }
 
         try {
-            $verified = $this->auth->verifyIdToken($idToken);
-            $uid = $verified->claims()->get('sub');
+            $verifiedToken = $this->auth->verifyIdToken($idToken);
+            $uid = $verifiedToken->claims()->get('sub');
             $firebaseUser = $this->auth->getUser($uid);
 
             $user = User::firstOrCreate(
                 ['firebase_uid' => $uid],
                 [
                     'name' => $firebaseUser->displayName ?? 'Google User',
-                    'email' => $firebaseUser->email,
+                    'email' => $firebaseUser->email ?? null,
+                    'password' => bcrypt(bin2hex(random_bytes(16))), // dummy password
                 ]
             );
 
+            // ✅ Sanctum token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
             return response()->json([
                 'message' => 'Google login successful',
+                'access_token' => $token,
+                'token_type' => 'Bearer',
                 'user' => $user,
-            ]);
+            ], 200);
+
+        } catch (\Kreait\Firebase\Exception\Auth\RevokedIdToken $e) {
+            return response()->json(['error' => 'Invalid or revoked token'], 401);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
 }

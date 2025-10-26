@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('teacher_levels', function (Blueprint $table) {
+        Schema::create('ai_matches', function (Blueprint $table) {
             $table->id();
-            $table->string('level_name')->unique(); // e.g., Bronze, Silver, Gold, Platinum, Master
-            $table->integer('min_rating')->default(0);
-            $table->integer('max_rating')->default(0);
-            $table->longText('benefits')->nullable();
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->decimal('match_score', 5, 2)->default(0);
+            $table->longText('reason')->nullable();
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('teacher_levels');
+        Schema::dropIfExists('ai_matches');
     }
 };

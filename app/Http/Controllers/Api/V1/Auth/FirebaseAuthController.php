@@ -19,6 +19,30 @@ class FirebaseAuthController extends Controller
     }
     
 
+    /**
+     * @OA\Post(
+     *     path="/api/register",
+     *     operationId="registerUser",
+     *     tags={"Authentication"},
+     *     summary="Register a new user",
+     *     description="Registers a new user with Firebase and creates a local user record",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"name","email","password"},
+     *             @OA\Property(property="name", type="string", example="John Doe"),
+     *             @OA\Property(property="email", type="string", example="john@gmail.com"),
+     *            @OA\Property(property="password", type="string", example="password123")
+     *        ) 
+     *    ),
+     *    @OA\Response(response=201, description="User registered successfully"),
+     *   @OA\Response(response=422, description="Validation error"),
+     *   @OA\Response(response=500, description="Server error")
+     * )
+     */
+    
+    
+    
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -58,6 +82,28 @@ class FirebaseAuthController extends Controller
         }
     }
 
+
+    /**
+     * @OA\Post(
+     *     path="/api/login",
+     *     operationId="loginUser",
+     *     tags={"Authentication"},
+     *     summary="Login a user",
+     *     description="Logs in a user using Firebase authentication",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"email","password"},
+     *             @OA\Property(property="email", type="string", example="jhon@gmail.com"),
+     *            @OA\Property(property="password", type="string", example="password123")
+     *       )
+     *   ),
+     *   @OA\Response(response=200, description="Login successful"),
+     *   @OA\Response(response=401, description="Invalid credentials"),
+     *   @OA\Response(response=422, description="Validation error"),
+     *   @OA\Response(response=500, description="Server error")
+     * )
+     */
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -99,6 +145,17 @@ class FirebaseAuthController extends Controller
     }
 
 
+    /**
+     * @OA_Get(
+     *     path="/api/auth/me",
+     *     operationId="getAuthenticatedUser",
+     *     tags={"Authentication"},
+     *     summary="Get authenticated user",
+     *     description="Retrieves the currently authenticated user's information",
+     *     @OA\Response(response=200, description="User retrieved successfully"),
+     *     @OA\Response(response=401, description="Unauthorized")
+     * )
+     */
     public function me(Request $request)
     {
         $uid = $request->firebase_uid;

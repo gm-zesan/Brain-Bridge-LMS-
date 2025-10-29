@@ -9,6 +9,8 @@ use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
+
+
 class TeacherController extends Controller
 {
     protected $auth;
@@ -17,11 +19,49 @@ class TeacherController extends Controller
     {
         $this->auth = $firebase->getAuth();
     }
+
+
+    /**
+     * @OA\Get(
+     *      path="/api/teachers",
+     *      operationId="getTeachersList",
+     *      tags={"Teachers"},
+     *      summary="Get list of all teachers",
+     *      description="Returns all teachers from the database",
+     *      @OA\Response(
+     *          response=200,
+     *          description="Successful operation"
+     *      )
+     * )
+     */
     public function index()
     {
-        return response()->json(Teacher::with(['user', 'teacherLevel'])->get());
+        $teachers = User::role('teacher')->with('teacher')->get();
+        return response()->json($teachers, 200);
     }
 
+
+    /**
+     * @OA\Post(
+     *     path="/api/teachers",
+     *     operationId="storeTeacher",
+     *     tags={"Teachers"},
+     *     summary="Create a new teacher",
+     *     description="Creates a teacher and associated Firebase user",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"name","email","password"},
+     *             @OA\Property(property="name", type="string", example="John Doe"),
+     *             @OA\Property(property="email", type="string", example="john@example.com"),
+     *             @OA\Property(property="password", type="string", example="password123"),
+     *             @OA\Property(property="title", type="string", example="Math Teacher")
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Teacher created successfully"),
+     *     @OA\Response(response=422, description="Validation error")
+     * )
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -64,11 +104,59 @@ class TeacherController extends Controller
         ], 201);
     }
 
+
+    /**
+     * @OA\Get(
+     *     path="/api/teachers/{id}",
+     *     operationId="showTeacher",
+     *     tags={"Teachers"},
+     *     summary="Get teacher by ID",
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Teacher ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Successful operation"),
+     *     @OA\Response(response=404, description="Teacher not found")
+     * )
+     */
     public function show(Teacher $teacher)
     {
         return response()->json($teacher->load(['user', 'teacherLevel']));
     }
 
+
+    /**
+     * @OA\Put(
+     *     path="/api/teachers/{id}",
+     *     operationId="updateTeacher",
+     *     tags={"Teachers"},
+     *     summary="Update teacher info",
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="email", type="string"),
+     *             @OA\Property(property="title", type="string"),
+     *             @OA\Property(property="introduction_video", type="string"),
+     *             @OA\Property(property="phone", type="string"),
+     *             @OA\Property(property="bio", type="string"),
+     *             @OA\Property(property="address", type="string"),
+     *             @OA\Property(property="profile_picture", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Teacher updated successfully"),
+     *     @OA\Response(response=404, description="Teacher not found")
+     * )
+     */
     public function update(Request $request, Teacher $teacher)
     {
         $data = $request->validate([
@@ -103,6 +191,23 @@ class TeacherController extends Controller
         ]);
     }
 
+
+    /**
+     * @OA\Delete(
+     *     path="/api/teachers/{id}",
+     *     operationId="deleteTeacher",
+     *     tags={"Teachers"},
+     *     summary="Delete a teacher",
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Teacher deleted successfully"),
+     *     @OA\Response(response=404, description="Teacher not found")
+     * )
+     */
     public function destroy(Teacher $teacher)
     {
         $user = $teacher->user;

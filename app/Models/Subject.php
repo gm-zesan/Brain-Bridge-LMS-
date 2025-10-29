@@ -20,4 +20,14 @@ class Subject extends Model
     {
         return $this->hasMany(Subject::class, 'parent_id');
     }
+
+    public function skills()
+    {
+        return $this->hasMany(Skill::class);
+    }
+
+    public function videoLessons()
+    {
+        return $this->hasMany(VideoLesson::class);
+    }
 }

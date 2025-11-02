@@ -142,7 +142,8 @@ return [
              * @see \OpenApi\scan
              */
             'processors' => [
-                // new \App\SwaggerProcessors\SchemaQueryParameter(),
+                // Custom processor to add bearer security to routes using auth:sanctum
+                new \App\SwaggerProcessors\SanctumSecurity(),
             ],
 
             /**
@@ -217,28 +218,17 @@ return [
                 ],
                 */
                 'bearerAuth' => [
-                    'type' => 'apiKey',
+                    // Use the standard OpenAPI "http" bearer definition
+                    'type' => 'http',
+                    'scheme' => 'bearer',
+                    'bearerFormat' => 'JWT',
                     'description' => 'Enter token in format (Bearer <token>)',
-                    'name' => 'Authorization',
-                    'in' => 'header',
                 ],
             ],
-            'security' => [
-                /*
-                 * Examples of Securities
-                 */
-                [
-                    /*
-                    'oauth2_security_example' => [
-                        'read',
-                        'write'
-                    ],
-
-                    'passport' => []
-                    */
-                    ['bearerAuth' => []],
-                ],
-            ],
+            // Do not set a global security requirement here so we can apply
+            // security per-operation via a custom processor (for routes using
+            // 'auth:sanctum'). Leave empty to avoid forcing auth on public endpoints.
+            'security' => [],
         ],
 
         /*

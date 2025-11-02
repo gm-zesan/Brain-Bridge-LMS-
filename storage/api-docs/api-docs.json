@@ -1413,6 +1413,14 @@
             "401": {
                 "description": "Unauthorized"
             }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "apiKey",
+                "description": "Enter token in format (Bearer <token>)",
+                "name": "Authorization",
+                "in": "header"
+            }
         }
     },
     "tags": [
@@ -1452,5 +1460,12 @@
             "name": "Video Lessons",
             "description": "Video Lessons"
         }
+    ],
+    "security": [
+        [
+            {
+                "bearerAuth": []
+            }
+        ]
     ]
 }

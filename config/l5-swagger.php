@@ -216,6 +216,12 @@ return [
                     'in' => 'header', // The location of the API key. Valid values are "query" or "header".
                 ],
                 */
+                'bearerAuth' => [
+                    'type' => 'apiKey',
+                    'description' => 'Enter token in format (Bearer <token>)',
+                    'name' => 'Authorization',
+                    'in' => 'header',
+                ],
             ],
             'security' => [
                 /*
@@ -230,6 +236,7 @@ return [
 
                     'passport' => []
                     */
+                    ['bearerAuth' => []],
                 ],
             ],
         ],

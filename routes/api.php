@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\FirebaseAuthController;
+use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\ModuleController;
 use App\Http\Controllers\Api\V1\SkillController;
 use App\Http\Controllers\Api\V1\StudentController;
 use App\Http\Controllers\Api\V1\SubjectController;
@@ -45,6 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('teachers', TeacherController::class)->except(['store']);
     Route::apiResource('subjects', SubjectController::class);
     Route::apiResource('skills', SkillController::class);
+    
+    Route::apiResource('courses', CourseController::class);
+    Route::apiResource('modules', ModuleController::class);
     Route::apiResource('video-lessons', VideoLessonController::class);
 
 

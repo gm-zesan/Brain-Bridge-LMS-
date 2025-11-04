@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Course;
+use App\Models\LessonSession;
 use App\Models\Transaction;
-use App\Models\VideoLesson;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
@@ -43,9 +44,9 @@ class TransactionController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"user_id","video_lesson_id"},
+     *             required={"user_id","course_id"},
      *             @OA\Property(property="user_id", type="integer", example=1),
-     *             @OA\Property(property="video_lesson_id", type="integer", example=1)
+     *             @OA\Property(property="course_id", type="integer", example=1)
      *         )
      *     ),
      *     @OA\Response(response=200, description="Stripe Checkout Session created successfully"),
@@ -55,10 +56,19 @@ class TransactionController extends Controller
     {
         $data = $request->validate([
             'user_id' => 'required|exists:users,id',
-            'video_lesson_id' => 'required|exists:video_lessons,id',
+            'course_id' => 'nullable|exists:video_lessons,id',
+            'lesson_session_id' => 'nullable|exists:lesson_sessions,id',
         ]);
 
-        $lesson = VideoLesson::findOrFail($data['video_lesson_id']);
+        if (isset($data['lesson_session_id'])) {
+            $lessonSession = LessonSession::findOrFail($data['lesson_session_id']);
+        }
+
+        if (isset($data['course_id'])) {
+            $course = Course::findOrFail($data['course_id']);
+        }
+
+
 
         Stripe::setApiKey(env('STRIPE_SECRET'));
 
@@ -69,9 +79,9 @@ class TransactionController extends Controller
                     'price_data' => [
                         'currency' => env('STRIPE_CURRENCY', 'usd'),
                         'product_data' => [
-                            'name' => $lesson->title,
+                            'name' => $course ? $course->title : 'One to One Lesson',
                         ],
-                        'unit_amount' => $lesson->price * 100, // Stripe uses cents
+                        'unit_amount' => $course ? intval($course->price * 100) : intval($lessonSession->price * 100),
                     ],
                     'quantity' => 1,
                 ]],
@@ -83,8 +93,9 @@ class TransactionController extends Controller
             // Temporary create a transaction (status pending)
             $transaction = Transaction::create([
                 'user_id' => $data['user_id'],
-                'video_lesson_id' => $lesson->id,
-                'amount' => $lesson->price,
+                'course_id' => $course->id ?? null,
+                'lesson_session_id' => $lessonSession->id ?? null,
+                'amount' => $course ? $course->price : $lessonSession->price,
                 'currency' => env('STRIPE_CURRENCY', 'usd'),
                 'type' => 'payment',
                 'provider' => 'Stripe',
@@ -208,7 +219,7 @@ class TransactionController extends Controller
      *         @OA\JsonContent(
      *             required={"user_id","amount","type"},
      *             @OA\Property(property="user_id", type="integer", example=1),
-     *             @OA\Property(property="video_lesson_id", type="integer", example=1),
+     *             @OA\Property(property="course_id", type="integer", example=1),
      *             @OA\Property(property="lesson_session_id", type="integer", example=1),
      *             @OA\Property(property="amount", type="number", format="float", example=49.99),
      *             @OA\Property(property="currency", type="string", example="usd"),
@@ -222,7 +233,7 @@ class TransactionController extends Controller
     {
         $data = $request->validate([
             'user_id' => 'required|exists:users,id',
-            'video_lesson_id' => 'nullable|exists:video_lessons,id',
+            'course_id' => 'nullable|exists:video_lessons,id',
             'lesson_session_id' => 'nullable|exists:lesson_sessions,id',
             'amount' => 'required|numeric|min:0',
             'currency' => 'nullable|string|max:3',

@@ -8,7 +8,7 @@ class Transaction extends Model
 {
     protected $fillable = [
         'user_id',
-        'video_lesson_id',
+        'course_id',
         'lesson_session_id',
         'amount',
         'currency',
@@ -23,9 +23,9 @@ class Transaction extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function videoLesson()
+    public function course()
     {
-        return $this->belongsTo(VideoLesson::class);
+        return $this->belongsTo(Course::class);
     }
 
     public function lessonSession()

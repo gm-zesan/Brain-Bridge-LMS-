@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('video_lesson_id')->nullable()->constrained('video_lessons')->onDelete('set null');
+            $table->foreignId('course_id')->nullable()->constrained('courses')->onDelete('set null');
             $table->foreignId('lesson_session_id')->nullable()->constrained('lesson_sessions')->onDelete('set null');
             $table->decimal('amount', 10, 2);
             $table->string('currency', 3)->default('USD');

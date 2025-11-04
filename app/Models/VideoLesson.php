@@ -7,17 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 class VideoLesson extends Model
 {
     protected $fillable = [
-        'teacher_id',
+        'module_id',
         'title',
         'description',
-        'price',
         'duration_hours',
         'video_url',
+        'video_path',
+        'filename',
         'is_published',
     ];
 
-    public function teacher()
+    public function module()
     {
-        return $this->belongsTo(User::class, 'teacher_id');
+        return $this->belongsTo(Module::class, 'module_id');
     }
+
 }

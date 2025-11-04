@@ -4,169 +4,319 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\VideoLesson;
+use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 
+/**
+ * @OA\Tag(
+ *     name="Video Lessons",
+ *     description="API Endpoints for managing video lessons"
+ * )
+ */
 class VideoLessonController extends Controller
 {
+
+    protected FirebaseService $firebaseService;
+
+    public function __construct(FirebaseService $firebaseService)
+    {
+        $this->firebaseService = $firebaseService;
+    }
+
     /**
      * @OA\Get(
-     *      path="/api/video-lessons",
-     *      operationId="getVideoLessonsList",
-     *      tags={"Video Lessons"},
-     *      summary="Get list of all video lessons",
-     *      description="Returns all video lessons from the database",
-     *      @OA\Response(
-     *          response=200,
-     *          description="Successful operation"
-     *      )
+     *     path="/api/video-lessons",
+     *     summary="Get all video lessons",
+     *     tags={"Video Lessons"},
+     *     @OA\Response(response=200, description="List of video lessons")
      * )
      */
     public function index()
     {
-        return response()->json(VideoLesson::with(['teacher', 'subject'])->get());
+        try {
+            $videoLessons = VideoLesson::with('module.course')
+                ->latest()
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $videoLessons
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch video lessons',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
      * @OA\Post(
      *     path="/api/video-lessons",
-     *     operationId="storeVideoLesson",
+     *     summary="Upload a video file and create a video lesson",
      *     tags={"Video Lessons"},
-     *     summary="Create a new video lesson",
-     *     description="Creates a new video lesson",
+     *     security={{"bearerAuth": {}}},
      *     @OA\RequestBody(
      *         required=true,
-     *         @OA\JsonContent(
-     *             required={"teacher_id","subject_id","title","video_url"},
-     *             @OA\Property(property="teacher_id", type="integer", example=1),
-     *             @OA\Property(property="subject_id", type="integer", example=1),
-     *             @OA\Property(property="title", type="string", example="Introduction to Algebra"),
-     *             @OA\Property(property="description", type="string", example="A basic introduction to algebraic concepts."),
-     *             @OA\Property(property="old_price", type="number", format="float", example=49.99),
-     *             @OA\Property(property="price", type="number", format="float", example=29.99),
-     *             @OA\Property(property="duration_hours", type="integer", example=2),
-     *             @OA\Property(property="video_url", type="string", example="https://example.com/video.mp4"),
-     *             @OA\Property(property="is_published", type="boolean", example=true)
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"module_id","title","description","video"},
+     *                 @OA\Property(property="module_id", type="integer", example=1),
+     *                 @OA\Property(property="title", type="string", example="Introduction to Laravel"),
+     *                 @OA\Property(property="description", type="string", example="Getting started with Laravel basics"),
+     *                 @OA\Property(property="duration_hours", type="number", example=1.5),
+     *                 @OA\Property(property="video", type="string", format="binary"),
+     *                 @OA\Property(property="is_published", type="boolean", example=true)
+     *             )
      *         )
      *     ),
-     *     @OA\Response(response=201, description="Video lesson created successfully"),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Video lesson created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Video uploaded successfully"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=400, description="Invalid data or upload error"),
+     *     @OA\Response(response=401, description="Unauthorized")
      * )
      */
-
     public function store(Request $request)
     {
+        // Validate request
         $data = $request->validate([
-            'teacher_id' => 'required|exists:users,id',
-            'subject_id' => 'required|exists:subjects,id',
+            'module_id' => 'required|exists:modules,id',
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'old_price' => 'nullable|numeric|min:0',
-            'price' => 'nullable|numeric|min:0',
-            'duration_hours' => 'nullable|integer|min:0',
-            'video_url' => 'required|string',
-            'is_published' => 'boolean',
+            'description' => 'required|string',
+            'duration_hours' => 'nullable|numeric|min:0',
+            'video' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000', // max 500MB
+            'is_published' => 'nullable|boolean',
         ]);
 
-        $lesson = VideoLesson::create($data);
-        return response()->json($lesson, 201);
+        try {
+            $file = $request->file('video');
+
+            // Upload to Firebase
+            $uploadResult = $this->firebaseService->uploadVideo($file, 'video-lessons');
+
+            if (!$uploadResult['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Video upload failed',
+                    'error' => $uploadResult['error']
+                ], 500);
+            }
+
+            // Save video lesson in database
+            $videoLesson = VideoLesson::create([
+                'module_id' => $data['module_id'],
+                'title' => $data['title'],
+                'description' => $data['description'],
+                'duration_hours' => $data['duration_hours'] ?? 0,
+                'video_url' => $uploadResult['url'],
+                'video_path' => $uploadResult['path'],
+                'filename' => $uploadResult['filename'],
+                'is_published' => $data['is_published'] ?? false,
+            ]);
+
+            $videoLesson->load('module.course');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Video uploaded successfully',
+                'data' => $videoLesson,
+            ], 201);
+
+        } catch (\Throwable $e) {
+            // Rollback: Delete uploaded video if database save fails
+            if (isset($uploadResult['path'])) {
+                $this->firebaseService->deleteVideo($uploadResult['path']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during video upload',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
      * @OA\Get(
-     *      path="/api/video-lessons/{id}",
-     *      operationId="getVideoLessonById",
-     *      tags={"Video Lessons"},
-     *      summary="Get video lesson information",
-     *      description="Returns video lesson data",
-     *      @OA\Parameter(
-     *          name="id",
-     *          description="Video Lesson id",
-     *          required=true,
-     *          in="path",
-     *          @OA\Schema(
-     *              type="integer"
-     *          )
-     *      ),
-     *      @OA\Response(
-     *          response=200,
-     *          description="Successful operation"
-     *      ),
-     *      @OA\Response(response=404, description="Video Lesson not found")
-     * )
-     */
-
-    public function show(VideoLesson $videoLesson)
-    {
-        return response()->json($videoLesson->load(['teacher', 'subject']));
-    }
-
-    /**
-     * @OA\Put(
      *     path="/api/video-lessons/{id}",
-     *     operationId="updateVideoLesson",
+     *     summary="Get a specific video lesson by ID",
      *     tags={"Video Lessons"},
-     *     summary="Update an existing video lesson",
-     *     description="Updates a video lesson by ID",
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         description="Video Lesson ID",
+     *         description="Video lesson ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200, 
+     *         description="Video lesson details",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Video not found")
+     * )
+     */
+    public function show(VideoLesson $videoLesson)
+    {
+        $videoLesson->load('module.course');
+
+        return response()->json([
+            'success' => true,
+            'data' => $videoLesson,
+        ], 200);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/video-lessons/{id}",
+     *     summary="Update an existing video lesson (use POST with _method=PUT)",
+     *     tags={"Video Lessons"},
+     *     security={{"bearerAuth": {}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Video lesson ID",
      *         @OA\Schema(type="integer")
      *     ),
      *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             @OA\Property(property="title", type="string"),
-     *             @OA\Property(property="description", type="string"),
-     *             @OA\Property(property="old_price", type="number", format="float"),
-     *             @OA\Property(property="price", type="number", format="float"),
-     *             @OA\Property(property="duration_hours", type="integer"),
-     *             @OA\Property(property="video_url", type="string"),
-     *             @OA\Property(property="is_published", type="boolean")
+     *         required=false,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="_method", type="string", example="PUT"),
+     *                 @OA\Property(property="title", type="string", example="Updated Laravel Basics"),
+     *                 @OA\Property(property="description", type="string", example="Updated video description"),
+     *                 @OA\Property(property="duration_hours", type="number", example=2),
+     *                 @OA\Property(property="video", type="string", format="binary", description="New video file (optional)"),
+     *                 @OA\Property(property="is_published", type="boolean", example=true)
+     *             )
      *         )
      *     ),
      *     @OA\Response(response=200, description="Video lesson updated successfully"),
-     *     @OA\Response(response=404, description="Video Lesson not found")
+     *     @OA\Response(response=404, description="Video not found")
      * )
      */
     public function update(Request $request, VideoLesson $videoLesson)
     {
-        $data = $request->validate([
+        $request->validate([
+            'module_id' => 'sometimes|exists:modules,id',
             'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'old_price' => 'nullable|numeric|min:0',
-            'price' => 'nullable|numeric|min:0',
-            'duration_hours' => 'nullable|integer|min:0',
-            'video_url' => 'nullable|string',
-            'is_published' => 'boolean',
+            'description' => 'sometimes|string',
+            'duration_hours' => 'nullable|numeric|min:0',
+            'video' => 'sometimes|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000', // max 500MB
+            'is_published' => 'sometimes|boolean',
         ]);
 
-        $videoLesson->update($data);
-        return response()->json($videoLesson);
-    }
+        try {
+            $oldVideoPath = $videoLesson->video_path;
 
+            // If new video is uploaded
+            if ($request->hasFile('video')) {
+                $video = $request->file('video');
+                
+                // Upload new video
+                $uploadResult = $this->firebaseService->uploadVideo($video, 'video-lessons');
+
+                if (!$uploadResult['success']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Video upload failed',
+                        'error' => $uploadResult['error']
+                    ], 500);
+                }
+
+                // Update video fields
+                $videoLesson->video_url = $uploadResult['url'];
+                $videoLesson->video_path = $uploadResult['path'];
+                $videoLesson->filename = $uploadResult['filename'];
+
+                // Delete old video (do this after successful upload)
+                if ($oldVideoPath) {
+                    $this->firebaseService->deleteVideo($oldVideoPath);
+                }
+            }
+
+            // Update other fields
+            $videoLesson->fill($request->except('video'));
+            $videoLesson->save();
+
+            $videoLesson->load('module.course');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Video lesson updated successfully',
+                'data' => $videoLesson
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update video lesson',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     /**
      * @OA\Delete(
      *     path="/api/video-lessons/{id}",
-     *     operationId="deleteVideoLesson",
-     *     tags={"Video Lessons"},
      *     summary="Delete a video lesson",
-     *     description="Deletes a video lesson by ID",
+     *     tags={"Video Lessons"},
+     *     security={{"bearerAuth": {}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         description="Video Lesson ID",
+     *         description="Video lesson ID",
      *         @OA\Schema(type="integer")
      *     ),
-     *     @OA\Response(response=200, description="Video lesson deleted successfully"),
-     *     @OA\Response(response=404, description="Video Lesson not found")
+     *     @OA\Response(
+     *         response=200, 
+     *         description="Video lesson deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Video lesson deleted successfully")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Video not found")
      * )
      */
     public function destroy(VideoLesson $videoLesson)
     {
-        $videoLesson->delete();
-        return response()->json(['message' => 'Video lesson deleted successfully']);
+        try {
+            // Delete video from Firebase Storage
+            if ($videoLesson->video_path) {
+                $this->firebaseService->deleteVideo($videoLesson->video_path);
+            }
+
+            // Delete from database
+            $videoLesson->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Video lesson deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete video lesson',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

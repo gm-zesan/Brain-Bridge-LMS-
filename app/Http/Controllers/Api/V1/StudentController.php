@@ -4,10 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\FirebaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class StudentController extends Controller
 {
+    protected $auth;
+
+    public function __construct(FirebaseService $firebase)
+    {
+        $this->auth = $firebase->getAuth();
+    }
     /**
      * @OA\Get(
      *      path="/api/students",
@@ -25,6 +33,69 @@ class StudentController extends Controller
     {
         $students = User::role('student')->get();
         return response()->json($students, 200);
+    }
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/students",
+     *     operationId="storeStudent",
+     *     tags={"Students"},
+     *     summary="Create a new student",
+     *     description="Creates a student and associated Firebase user",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"name","email","password"},
+     *             @OA\Property(property="name", type="string", example="John Doe"),
+     *             @OA\Property(property="email", type="string", example="john@gmail.com"),
+     *             @OA\Property(property="password", type="string", example="password123")
+     *         )
+     *     ),
+     *    @OA\Response(response=201, description="Student created successfully"),
+     *   @OA\Response(response=422, description="Validation error"),
+     *   @OA\Response(response=500, description="Server error")
+     * )
+     */
+    
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|unique:users',
+            'password' => 'required|min:6',
+            'name' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $firebaseUser = $this->auth->createUser([
+                'email' => $request->email,
+                'password' => $request->password,
+                'displayName' => $request->name,
+            ]);
+
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'firebase_uid' => $firebaseUser->uid,
+                'password' => bcrypt($request->password),
+            ]);
+
+            $user->assignRole('student');
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            return response()->json([
+                'message' => 'Registration successful',
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'user' => $user,
+            ], 201);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -103,6 +174,4 @@ class StudentController extends Controller
             'student' => $student
         ], 200);
     }
-
-
 }

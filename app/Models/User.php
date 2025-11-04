@@ -60,16 +60,9 @@ class User extends Authenticatable
         return $this->hasOne(Teacher::class);
     }
 
-    public function videoLessons()
-    {
-        return $this->hasMany(VideoLesson::class);
-    }
 
     public function transaction()
     {
         return $this->hasMany(Transaction::class);
     }
-
-
-
 }

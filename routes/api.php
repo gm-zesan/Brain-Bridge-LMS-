@@ -17,11 +17,19 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
+
+Route::apiResource('teachers', TeacherController::class)->only(['store']);
+Route::apiResource('students', StudentController::class)->only(['store']);
+
+
+
+
 Route::post('/register', [FirebaseAuthController::class, 'register']);
+Route::post('/login', [FirebaseAuthController::class, 'login']);
+
 Route::post('/password/reset', [FirebaseAuthController::class, 'resetPassword']);
 Route::post('/google/login', [FirebaseAuthController::class, 'googleLogin']);
-Route::post('/login', [FirebaseAuthController::class, 'login']);
-Route::apiResource('teachers', TeacherController::class)->only(['store']);
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [FirebaseAuthController::class, 'me']);
@@ -31,7 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Teacher Routes
     Route::apiResource('users', UserController::class);
-    Route::apiResource('students', StudentController::class);
+    Route::apiResource('students', StudentController::class)->except(['store']);
 
     Route::apiResource('teacher-levels', TeacherLevelController::class);
     Route::apiResource('teachers', TeacherController::class)->except(['store']);

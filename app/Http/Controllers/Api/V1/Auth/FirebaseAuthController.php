@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Services\FirebaseService;
+use Illuminate\Support\Facades\Auth;
 
 class FirebaseAuthController extends Controller
 {
@@ -69,6 +70,8 @@ class FirebaseAuthController extends Controller
                 'firebase_uid' => $firebaseUser->uid,
                 'password' => bcrypt($request->password),
             ]);
+
+            $user->assignRole('admin');
 
             $token = $user->createToken('auth_token')->plainTextToken;
             return response()->json([
@@ -144,10 +147,10 @@ class FirebaseAuthController extends Controller
         }
     }
 
-
+    
     /**
-     * @OA_Get(
-     *     path="/api/auth/me",
+     * @OA\Get(
+     *     path="/api/me",
      *     operationId="getAuthenticatedUser",
      *     tags={"Authentication"},
      *     summary="Get authenticated user",
@@ -156,12 +159,21 @@ class FirebaseAuthController extends Controller
      *     @OA\Response(response=401, description="Unauthorized")
      * )
      */
-    public function me(Request $request)
+    public function me()
     {
-        $uid = $request->firebase_uid;
-        $user = User::where('firebase_uid', $uid)->first();
+        $userId = Auth::id();
 
-        return response()->json(['user' => $user]);
+        if (!$userId) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $user = User::with('roles', 'transaction')->find($userId);
+
+        if($user->teacher) {
+            $user->load('teacher', 'teacher.teacherLevel', 'teacher.videoLessons', 'teacher.skills');
+        }
+
+        return response()->json(['user' => $user], 200);
     }
 
     public function resetPassword(Request $request)

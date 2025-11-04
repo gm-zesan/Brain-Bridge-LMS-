@@ -25,4 +25,15 @@ class Teacher extends Model
     {
         return $this->belongsTo(TeacherLevel::class);
     }
+
+    public function videoLessons()
+    {
+        return $this->hasMany(VideoLesson::class);
+    }
+
+    public function skills()
+    {
+        return $this->hasMany(TeacherSkill::class);
+    }
+
 }

@@ -83,7 +83,7 @@ class TeacherController extends Controller
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'firebase_uid' => $firebaseUser->uid,
-                'password' => bcrypt($request->password),
+                'password' => bcrypt($request->password)
             ]);
         }
         

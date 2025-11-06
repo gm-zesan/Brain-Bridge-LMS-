@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @OA\Tag(
@@ -71,6 +72,13 @@ class CourseController extends Controller
         ]);
 
         $data['teacher_id'] = Auth::id();
+
+        if ($request->hasFile('thumbnail_url')) {
+            $file = $request->file('thumbnail_url');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $path = $file->storeAs('public/thumbnails', $filename);
+            $data['thumbnail_url'] = 'thumbnails/' . $filename;
+        }
 
         $course = Course::create($data);
         return response()->json([
@@ -151,6 +159,17 @@ class CourseController extends Controller
             'price' => 'sometimes|required|numeric',
             'is_published' => 'boolean',
         ]);
+
+        if ($request->hasFile('thumbnail_url')) {
+            if ($course->thumbnail_url && Storage::exists('public/' . $course->thumbnail_url)) {
+                Storage::delete('public/' . $course->thumbnail_url);
+            }
+
+            $file = $request->file('thumbnail_url');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $path = $file->storeAs('public/thumbnails', $filename);
+            $data['thumbnail_url'] = 'thumbnails/' . $filename;
+        }
 
         $course->update($data);
 

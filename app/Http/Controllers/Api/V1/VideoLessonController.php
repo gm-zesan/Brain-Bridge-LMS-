@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\VideoLesson;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @OA\Tag(
@@ -102,15 +103,19 @@ class VideoLessonController extends Controller
             $file = $request->file('video');
 
             // Upload to Firebase
-            $uploadResult = $this->firebaseService->uploadVideo($file, 'video-lessons');
+            // $uploadResult = $this->firebaseService->uploadVideo($file, 'video-lessons');
 
-            if (!$uploadResult['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Video upload failed',
-                    'error' => $uploadResult['error']
-                ], 500);
-            }
+            // if (!$uploadResult['success']) {
+            //     return response()->json([
+            //         'success' => false,
+            //         'message' => 'Video upload failed',
+            //         'error' => $uploadResult['error']
+            //     ], 500);
+            // }
+
+            // Store video locally
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $path = $file->storeAs('public/videos', $filename);
 
             // Save video lesson in database
             $videoLesson = VideoLesson::create([
@@ -118,9 +123,12 @@ class VideoLessonController extends Controller
                 'title' => $data['title'],
                 'description' => $data['description'],
                 'duration_hours' => $data['duration_hours'] ?? 0,
-                'video_url' => $uploadResult['url'],
-                'video_path' => $uploadResult['path'],
-                'filename' => $uploadResult['filename'],
+                // 'video_url' => $uploadResult['url'],
+                // 'video_path' => $uploadResult['path'],
+                // 'filename' => $uploadResult['filename'],
+                'video_url' => 'videos/' . $filename,
+                'video_path' => $path,
+                'filename' => $filename,
                 'is_published' => $data['is_published'] ?? false,
             ]);
 
@@ -225,30 +233,48 @@ class VideoLessonController extends Controller
             $oldVideoPath = $videoLesson->video_path;
 
             // If new video is uploaded
+            // if ($request->hasFile('video')) {
+            //     $video = $request->file('video');
+                
+            //     // Upload new video
+            //     $uploadResult = $this->firebaseService->uploadVideo($video, 'video-lessons');
+
+            //     if (!$uploadResult['success']) {
+            //         return response()->json([
+            //             'success' => false,
+            //             'message' => 'Video upload failed',
+            //             'error' => $uploadResult['error']
+            //         ], 500);
+            //     }
+
+            //     // Update video fields
+            //     $videoLesson->video_url = $uploadResult['url'];
+            //     $videoLesson->video_path = $uploadResult['path'];
+            //     $videoLesson->filename = $uploadResult['filename'];
+
+            //     // Delete old video (do this after successful upload)
+            //     if ($oldVideoPath) {
+            //         $this->firebaseService->deleteVideo($oldVideoPath);
+            //     }
+            // }
+
+            // If new video is uploaded locally
             if ($request->hasFile('video')) {
                 $video = $request->file('video');
-                
-                // Upload new video
-                $uploadResult = $this->firebaseService->uploadVideo($video, 'video-lessons');
-
-                if (!$uploadResult['success']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Video upload failed',
-                        'error' => $uploadResult['error']
-                    ], 500);
-                }
+                $filename = time() . '_' . $video->getClientOriginalName();
+                $path = $video->storeAs('public/videos', $filename);
 
                 // Update video fields
-                $videoLesson->video_url = $uploadResult['url'];
-                $videoLesson->video_path = $uploadResult['path'];
-                $videoLesson->filename = $uploadResult['filename'];
+                $videoLesson->video_url = 'videos/' . $filename;
+                $videoLesson->video_path = $path;
+                $videoLesson->filename = $filename;
 
-                // Delete old video (do this after successful upload)
-                if ($oldVideoPath) {
-                    $this->firebaseService->deleteVideo($oldVideoPath);
+                // Delete old local video if exists
+                if ($oldVideoPath && Storage::exists($oldVideoPath)) {
+                    Storage::delete($oldVideoPath);
                 }
             }
+
 
             // Update other fields
             $videoLesson->fill($request->except('video'));
@@ -299,8 +325,13 @@ class VideoLessonController extends Controller
     {
         try {
             // Delete video from Firebase Storage
-            if ($videoLesson->video_path) {
-                $this->firebaseService->deleteVideo($videoLesson->video_path);
+            // if ($videoLesson->video_path) {
+            //     $this->firebaseService->deleteVideo($videoLesson->video_path);
+            // }
+
+            // Delete local video file
+            if ($videoLesson->video_path && Storage::exists($videoLesson->video_path)) {
+                Storage::delete($videoLesson->video_path);
             }
 
             // Delete from database

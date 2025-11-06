@@ -17,7 +17,6 @@ class RoleSeeder extends Seeder
             array('id' => '1','name' => 'admin', 'guard_name' => 'web'),
             array('id' => '2','name' => 'teacher', 'guard_name' => 'web'),
             array('id' => '3','name' => 'student', 'guard_name' => 'web'),
-
         );
         foreach($datas as $data)
         {

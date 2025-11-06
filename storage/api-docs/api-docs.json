@@ -152,60 +152,469 @@
                 "tags": [
                     "Courses"
                 ],
-                "summary": "Create a new course",
-                "operationId": "cec2fcab51ed6183de146bb656025429",
+                "summary": "Create a new course with modules and videos",
+                "description": "Creates a complete course structure including multiple modules and video lessons. Each module can contain multiple videos. Supports file uploads for course thumbnail and video files.",
+                "operationId": "createCourse",
                 "requestBody": {
+                    "description": "Course creation data with modules and videos",
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "required": [
                                     "title",
                                     "description",
                                     "subject_id",
-                                    "price"
+                                    "price",
+                                    "modules"
                                 ],
                                 "properties": {
                                     "title": {
+                                        "description": "Course title",
                                         "type": "string",
-                                        "example": "Laravel Masterclass"
+                                        "maxLength": 255,
+                                        "example": "Complete Web Development Bootcamp 2024"
                                     },
                                     "description": {
+                                        "description": "Detailed course description",
                                         "type": "string",
-                                        "example": "Learn Laravel from scratch"
+                                        "example": "Master modern web development from scratch. Learn HTML5, CSS3, JavaScript, React, Node.js, and Laravel with hands-on projects."
                                     },
                                     "thumbnail_url": {
+                                        "description": "Course thumbnail image (JPEG, PNG, GIF - Max: 5MB)",
                                         "type": "string",
-                                        "example": "https://example.com/image.jpg"
+                                        "format": "binary"
                                     },
                                     "subject_id": {
+                                        "description": "Subject ID from subjects table",
                                         "type": "integer",
                                         "example": 1
                                     },
-                                    "old_price": {
-                                        "type": "number",
-                                        "example": 4999
-                                    },
                                     "price": {
+                                        "description": "Current course price",
                                         "type": "number",
-                                        "example": 2999
+                                        "format": "float",
+                                        "example": 2999.99
+                                    },
+                                    "old_price": {
+                                        "description": "Original price before discount (optional)",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 4999.99
                                     },
                                     "is_published": {
+                                        "description": "Publish status (default: false)",
                                         "type": "boolean",
                                         "example": true
+                                    },
+                                    "modules": {
+                                        "description": "Array of course modules (minimum 1 required)",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "title",
+                                                "order_index"
+                                            ],
+                                            "properties": {
+                                                "title": {
+                                                    "description": "Module title",
+                                                    "type": "string",
+                                                    "maxLength": 255,
+                                                    "example": "Introduction to Web Development"
+                                                },
+                                                "description": {
+                                                    "description": "Module description (optional)",
+                                                    "type": "string",
+                                                    "example": "Learn the fundamentals of web development and setup your development environment"
+                                                },
+                                                "order_index": {
+                                                    "description": "Display order of module",
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "example": 1
+                                                },
+                                                "videos": {
+                                                    "description": "Array of video lessons for this module (optional)",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "required": [
+                                                            "title",
+                                                            "file"
+                                                        ],
+                                                        "properties": {
+                                                            "title": {
+                                                                "description": "Video lesson title",
+                                                                "type": "string",
+                                                                "maxLength": 255,
+                                                                "example": "What is HTML and How Does it Work?"
+                                                            },
+                                                            "description": {
+                                                                "description": "Video lesson description (optional)",
+                                                                "type": "string",
+                                                                "example": "Learn about HTML structure, tags, and elements with practical examples"
+                                                            },
+                                                            "duration_hours": {
+                                                                "description": "Video duration in hours (optional)",
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "minimum": 0,
+                                                                "example": 1.5
+                                                            },
+                                                            "file": {
+                                                                "description": "Video file (MP4, AVI, MOV - Max: 500MB)",
+                                                                "type": "string",
+                                                                "format": "binary"
+                                                            },
+                                                            "is_published": {
+                                                                "description": "Video publish status (default: false)",
+                                                                "type": "boolean",
+                                                                "example": true
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
                                     }
                                 },
-                                "type": "object"
+                                "type": "object",
+                                "example": {
+                                    "title": "Complete Web Development Bootcamp 2024",
+                                    "description": "Master modern web development",
+                                    "subject_id": 1,
+                                    "price": 2999.99,
+                                    "old_price": 4999.99,
+                                    "is_published": true,
+                                    "modules": [
+                                        {
+                                            "title": "HTML Fundamentals",
+                                            "description": "Learn HTML from basics to advanced",
+                                            "order_index": 1,
+                                            "videos": [
+                                                {
+                                                    "title": "Introduction to HTML",
+                                                    "description": "What is HTML?",
+                                                    "duration_hours": 0.5,
+                                                    "is_published": true
+                                                },
+                                                {
+                                                    "title": "HTML Tags and Elements",
+                                                    "duration_hours": 1,
+                                                    "is_published": true
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "title": "CSS Styling",
+                                            "order_index": 2,
+                                            "videos": [
+                                                {
+                                                    "title": "CSS Basics",
+                                                    "duration_hours": 0.75,
+                                                    "is_published": true
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
                             }
                         }
                     }
                 },
                 "responses": {
                     "201": {
-                        "description": "Course created successfully"
+                        "description": "Course created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course created successfully with 2 modules and 5 videos"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "course": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "title": {
+                                                            "type": "string",
+                                                            "example": "Complete Web Development Bootcamp 2024"
+                                                        },
+                                                        "slug": {
+                                                            "type": "string",
+                                                            "example": "complete-web-development-bootcamp-2024"
+                                                        },
+                                                        "description": {
+                                                            "type": "string",
+                                                            "example": "Master modern web development"
+                                                        },
+                                                        "thumbnail_url": {
+                                                            "type": "string",
+                                                            "example": "thumbnails/1699123456_course-thumb.jpg"
+                                                        },
+                                                        "subject_id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "teacher_id": {
+                                                            "type": "integer",
+                                                            "example": 5
+                                                        },
+                                                        "price": {
+                                                            "type": "number",
+                                                            "format": "float",
+                                                            "example": 2999.99
+                                                        },
+                                                        "old_price": {
+                                                            "type": "number",
+                                                            "format": "float",
+                                                            "example": 4999.99
+                                                        },
+                                                        "is_published": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        },
+                                                        "created_at": {
+                                                            "type": "string",
+                                                            "format": "date-time",
+                                                            "example": "2024-11-07T10:30:00.000000Z"
+                                                        },
+                                                        "updated_at": {
+                                                            "type": "string",
+                                                            "format": "date-time",
+                                                            "example": "2024-11-07T10:30:00.000000Z"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "modules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "course_id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "title": {
+                                                                "type": "string",
+                                                                "example": "HTML Fundamentals"
+                                                            },
+                                                            "description": {
+                                                                "type": "string",
+                                                                "example": "Learn HTML from basics to advanced"
+                                                            },
+                                                            "order_index": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "updated_at": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "videos": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "module_id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "title": {
+                                                                "type": "string",
+                                                                "example": "Introduction to HTML"
+                                                            },
+                                                            "description": {
+                                                                "type": "string",
+                                                                "example": "What is HTML?"
+                                                            },
+                                                            "duration_hours": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 0.5
+                                                            },
+                                                            "video_url": {
+                                                                "type": "string",
+                                                                "example": "videos/1699123456_intro-html.mp4"
+                                                            },
+                                                            "video_path": {
+                                                                "type": "string",
+                                                                "example": "public/videos/1699123456_intro-html.mp4"
+                                                            },
+                                                            "filename": {
+                                                                "type": "string",
+                                                                "example": "1699123456_intro-html.mp4"
+                                                            },
+                                                            "is_published": {
+                                                                "type": "boolean",
+                                                                "example": true
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "updated_at": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "statistics": {
+                                                    "properties": {
+                                                        "total_modules": {
+                                                            "type": "integer",
+                                                            "example": 2
+                                                        },
+                                                        "total_videos": {
+                                                            "type": "integer",
+                                                            "example": 5
+                                                        },
+                                                        "total_duration_hours": {
+                                                            "type": "number",
+                                                            "format": "float",
+                                                            "example": 7.5
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation failed"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "title": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The title field is required."
+                                                    }
+                                                },
+                                                "modules.0.videos.0.file": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The video file must be a file of type: mp4, avi, mov."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "401": {
-                        "description": "Unauthorized"
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated. Please login to continue."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User not authorized as teacher",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Only teachers can create courses"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - Course creation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to create course. Please try again."
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "SQLSTATE[23000]: Integrity constraint violation"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [

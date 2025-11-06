@@ -20,7 +20,7 @@ return new class extends Migration
             $table->text('video_url');
             $table->string('video_path')->nullable();
             $table->string('filename')->nullable();
-            $table->boolean('is_published')->default(false);
+            $table->boolean('is_published')->default(true);
             $table->timestamps();
         });
     }

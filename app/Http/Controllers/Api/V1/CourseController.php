@@ -49,7 +49,6 @@ class CourseController extends Controller
      *     description="Creates a complete course structure including multiple modules and video lessons. Each module can contain multiple videos. Supports file uploads for course thumbnail and video files.",
      *     operationId="createCourse",
      *     tags={"Courses"},
-     *     security={{"bearerAuth": {}}},
      *     @OA\RequestBody(
      *         required=true,
      *         description="Course creation data with modules and videos",
@@ -333,7 +332,8 @@ class CourseController extends Controller
      */
     public function store(Request $request)
     {
-        try {
+        // dd($request->all());
+        // try {
             // Validate incoming request
             $validated = $request->validate([
                 // Course validation
@@ -460,32 +460,32 @@ class CourseController extends Controller
                 ]
             ], 201);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
+        // } catch (\Illuminate\Validation\ValidationException $e) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Validation failed',
+        //         'errors' => $e->errors()
+        //     ], 422);
 
-        } catch (\Throwable $e) {
-            DB::rollBack();
+        // } catch (\Throwable $e) {
+        //     DB::rollBack();
 
-            // Cleanup uploaded files on failure
-            $this->cleanupFailedUpload($request);
+        //     // Cleanup uploaded files on failure
+        //     $this->cleanupFailedUpload($request);
 
-            // Log the error
-            Log::error('Course creation failed', [
-                'teacher_id' => Auth::id(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+        //     // Log the error
+        //     Log::error('Course creation failed', [
+        //         'teacher_id' => Auth::id(),
+        //         'error' => $e->getMessage(),
+        //         'trace' => $e->getTraceAsString()
+        //     ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create course. Please try again.',
-                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred while processing your request'
-            ], 500);
-        }
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Failed to create course. Please try again.',
+        //         'error' => config('app.debug') ? $e->getMessage() : 'An error occurred while processing your request'
+        //     ], 500);
+        // }
     }
 
     /**

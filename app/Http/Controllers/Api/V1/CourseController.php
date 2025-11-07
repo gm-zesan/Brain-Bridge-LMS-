@@ -30,15 +30,20 @@ class CourseController extends Controller
      */
     public function index()
     {
-        $courses = Course::with('subject', 'teacher')
-            ->where('is_published', true)
-            ->latest()
-            ->get();
+        $query = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons']);
+
+        if(!Auth::user()->hasRole('admin')) {
+            $query->where('teacher_id', Auth::id());
+        }
+
+        $courses = $query->latest()->get();
 
         return response()->json([
-            'courses' => $courses,
+            'success' => true,
+            'data' => $courses,
         ], 200);
     }
+
     
 
 
@@ -634,7 +639,7 @@ class CourseController extends Controller
             return response()->json(['message' => 'Course not found'], 404);
         }
         
-        $course->load('subject', 'teacher', 'modules.videoLessons');
+        $course->load('subject', 'teacher', 'modules', 'modules.videoLessons');
 
         return response()->json($course, 200);
     }
@@ -668,40 +673,183 @@ class CourseController extends Controller
      *     @OA\Response(response=401, description="Unauthorized")
      * )
      */
-    public function update(Request $request, Course $course)
+    public function update(Request $request, $id)
     {
-        if (!$course) {
-            return response()->json(['message' => 'Course not found or not authorized'], 404);
-        }
+        // Validate request
+        $validated = $request->validate([
+            // Course validation
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120',
+            'subject_id' => 'required|exists:subjects,id',
+            'price' => 'required|numeric|min:0',
+            'old_price' => 'nullable|numeric|min:0',
+            'is_published' => 'nullable|boolean',
 
-        $data = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'thumbnail_url' => 'nullable|string',
-            'subject_id' => 'sometimes|required|exists:subjects,id',
-            'old_price' => 'nullable|numeric',
-            'price' => 'sometimes|required|numeric',
-            'is_published' => 'boolean',
+            // Modules validation
+            'modules' => 'required|array|min:1',
+            'modules.*.id' => 'nullable|exists:modules,id',
+            'modules.*.title' => 'required|string|max:255',
+            'modules.*.description' => 'nullable|string',
+            'modules.*.order_index' => 'required|integer|min:1',
+
+            // Videos validation
+            'modules.*.videos' => 'nullable|array',
+            'modules.*.videos.*.id' => 'nullable|exists:video_lessons,id',
+            'modules.*.videos.*.title' => 'required|string|max:255',
+            'modules.*.videos.*.description' => 'nullable|string',
+            'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
+            'modules.*.videos.*.file' => 'nullable|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000',
+            'modules.*.videos.*.is_published' => 'nullable|boolean',
         ]);
 
-        if ($request->hasFile('thumbnail_url')) {
-            if ($course->thumbnail_url && Storage::exists('public/' . $course->thumbnail_url)) {
-                Storage::delete('public/' . $course->thumbnail_url);
+        DB::beginTransaction();
+
+        try {
+            // Find the course
+            $course = Course::findOrFail($id);
+
+            // Update course data
+            $course->update([
+                'title' => $validated['title'],
+                'description' => $validated['description'],
+                'subject_id' => $validated['subject_id'],
+                'price' => $validated['price'],
+                'old_price' => $validated['old_price'] ?? null,
+                'is_published' => $validated['is_published'] ?? false,
+            ]);
+
+            // Handle thumbnail update
+            if ($request->hasFile('thumbnail_url')) {
+                // Delete old thumbnail if exists
+                if ($course->thumbnail_url && Storage::exists('public/' . $course->thumbnail_url)) {
+                    Storage::delete('public/' . $course->thumbnail_url);
+                }
+
+                $thumbnail = $request->file('thumbnail_url');
+                $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
+                $thumbnail->storeAs('public/thumbnails', $thumbnailName);
+                $course->update(['thumbnail_url' => 'thumbnails/' . $thumbnailName]);
             }
 
-            $file = $request->file('thumbnail_url');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('public/thumbnails', $filename);
-            $data['thumbnail_url'] = 'thumbnails/' . $filename;
+            $updatedModules = [];
+            $updatedVideos = [];
+            $totalDuration = 0;
+
+            // Get existing modules & videos for cleanup tracking
+            $existingModuleIds = $course->modules->pluck('id')->toArray();
+            $keptModuleIds = [];
+
+            foreach ($validated['modules'] as $moduleData) {
+                // Update or create module
+                if (!empty($moduleData['id'])) {
+                    $module = Module::find($moduleData['id']);
+                    $module->update([
+                        'title' => $moduleData['title'],
+                        'description' => $moduleData['description'] ?? null,
+                        'order_index' => $moduleData['order_index'],
+                    ]);
+                } else {
+                    $module = Module::create([
+                        'course_id' => $course->id,
+                        'title' => $moduleData['title'],
+                        'description' => $moduleData['description'] ?? null,
+                        'order_index' => $moduleData['order_index'],
+                    ]);
+                }
+
+                $keptModuleIds[] = $module->id;
+                $updatedModules[] = $module;
+
+                // Handle videos
+                if (!empty($moduleData['videos'])) {
+                    $existingVideoIds = $module->videos->pluck('id')->toArray();
+                    $keptVideoIds = [];
+
+                    foreach ($moduleData['videos'] as $videoData) {
+                        if (!empty($videoData['id'])) {
+                            // Update existing video
+                            $videoLesson = VideoLesson::find($videoData['id']);
+                            $videoLesson->update([
+                                'title' => $videoData['title'],
+                                'description' => $videoData['description'] ?? null,
+                                'duration_hours' => $videoData['duration_hours'] ?? 0,
+                                'is_published' => $videoData['is_published'] ?? false,
+                            ]);
+
+                            // Handle video file update
+                            if (!empty($videoData['file'])) {
+                                if ($videoLesson->video_url && Storage::exists('public/' . $videoLesson->video_url)) {
+                                    Storage::delete('public/' . $videoLesson->video_url);
+                                }
+
+                                $videoFile = $videoData['file'];
+                                $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+                                $videoFile->storeAs('public/videos', $videoName);
+                                $videoLesson->update([
+                                    'video_url' => 'videos/' . $videoName,
+                                    'filename' => $videoName,
+                                ]);
+                            }
+                        } else {
+                            // Create new video
+                            $videoFile = $videoData['file'];
+                            $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+                            $videoFile->storeAs('public/videos', $videoName);
+
+                            $videoLesson = VideoLesson::create([
+                                'module_id' => $module->id,
+                                'title' => $videoData['title'],
+                                'description' => $videoData['description'] ?? null,
+                                'duration_hours' => $videoData['duration_hours'] ?? 0,
+                                'video_url' => 'videos/' . $videoName,
+                                'filename' => $videoName,
+                                'is_published' => $videoData['is_published'] ?? false,
+                            ]);
+                        }
+
+                        $keptVideoIds[] = $videoLesson->id;
+                        $updatedVideos[] = $videoLesson;
+                        $totalDuration += $videoLesson->duration_hours;
+                    }
+
+                    // Delete removed videos
+                    $videosToDelete = array_diff($existingVideoIds, $keptVideoIds);
+                    VideoLesson::whereIn('id', $videosToDelete)->delete();
+                }
+            }
+
+            // Delete removed modules (and their videos)
+            $modulesToDelete = array_diff($existingModuleIds, $keptModuleIds);
+            if (!empty($modulesToDelete)) {
+                $modules = Module::whereIn('id', $modulesToDelete)->get();
+                foreach ($modules as $mod) {
+                    $mod->videos()->delete();
+                    $mod->delete();
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Course updated successfully',
+                'data' => [
+                    'course' => $course,
+                    'modules' => $updatedModules,
+                    'videos' => $updatedVideos,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Update failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $course->update($data);
-
-        return response()->json([
-            'message' => 'Course updated successfully',
-            'course' => $course,
-        ], 200);
     }
+
 
 
     /**
@@ -721,12 +869,48 @@ class CourseController extends Controller
      *     @OA\Response(response=401, description="Unauthorized")
      * )
      */
-    public function destroy(Course $course)
+    public function destroy($id)
     {
-        if (!$course) {
-            return response()->json(['message' => 'Course not found or not authorized'], 404);
+        DB::beginTransaction();
+
+        try {
+            // Find the course
+            $course = Course::findOrFail($id);
+
+            // Delete modules and their videos
+            foreach ($course->modules as $module) {
+                foreach ($module->videos as $video) {
+                    // Delete video file from storage
+                    if ($video->video_url && Storage::disk('public')->exists($video->video_url)) {
+                        Storage::disk('public')->delete($video->video_url);
+                    }
+                    $video->delete();
+                }
+                $module->delete();
+            }
+
+            // Delete course thumbnail if exists
+            if ($course->thumbnail_url && Storage::disk('public')->exists($course->thumbnail_url)) {
+                Storage::disk('public')->delete($course->thumbnail_url);
+            }
+
+            // Delete course
+            $course->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Course and all related modules/videos deleted successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Delete failed: ' . $e->getMessage(),
+            ], 500);
         }
-        $course->delete();
-        return response()->json(['message' => 'Course deleted successfully'], 200);
     }
+
 }

@@ -333,159 +333,110 @@ class CourseController extends Controller
     public function store(Request $request)
     {
         // dd($request->all());
-        // try {
-            // Validate incoming request
-            $validated = $request->validate([
-                // Course validation
-                'title' => 'required|string|max:255',
-                'description' => 'required|string',
-                'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120', // 5MB
-                'subject_id' => 'required|exists:subjects,id',
-                'price' => 'required|numeric|min:0',
-                'old_price' => 'nullable|numeric|min:0',
-                'is_published' => 'nullable|boolean',
+        // Validate incoming request
+        $validated = $request->validate([
+            // Course validation
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120', // 5MB
+            'subject_id' => 'required|exists:subjects,id',
+            'price' => 'required|numeric|min:0',
+            'old_price' => 'nullable|numeric|min:0',
+            'is_published' => 'nullable|boolean',
 
-                // Modules validation
-                'modules' => 'required|array|min:1',
-                'modules.*.title' => 'required|string|max:255',
-                'modules.*.description' => 'nullable|string',
-                'modules.*.order_index' => 'required|integer|min:1',
+            // Modules validation
+            'modules' => 'required|array|min:1',
+            'modules.*.title' => 'required|string|max:255',
+            'modules.*.description' => 'nullable|string',
+            'modules.*.order_index' => 'required|integer|min:1',
 
-                // Videos validation
-                'modules.*.videos' => 'nullable|array',
-                'modules.*.videos.*.title' => 'required|string|max:255',
-                'modules.*.videos.*.description' => 'nullable|string',
-                'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
-                'modules.*.videos.*.file' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000', // 500MB
-                'modules.*.videos.*.is_published' => 'nullable|boolean',
+            // Videos validation
+            'modules.*.videos' => 'nullable|array',
+            'modules.*.videos.*.title' => 'required|string|max:255',
+            'modules.*.videos.*.description' => 'nullable|string',
+            'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
+            'modules.*.videos.*.file' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000', // 500MB
+            'modules.*.videos.*.is_published' => 'nullable|boolean',
+        ]);
+
+        DB::beginTransaction();
+
+        // Prepare course data
+        $courseData = [
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'subject_id' => $validated['subject_id'],
+            'price' => $validated['price'],
+            'old_price' => $validated['old_price'] ?? null,
+            'is_published' => $validated['is_published'] ?? false,
+            'teacher_id' => Auth::id(),
+        ];
+
+        // Handle thumbnail upload
+        if ($request->hasFile('thumbnail_url')) {
+            $thumbnail = $request->file('thumbnail_url');
+            $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
+            $thumbnailPath = $thumbnail->storeAs('public/thumbnails', $thumbnailName);
+            $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
+        }
+
+        // Create course
+        $course = Course::create($courseData);
+
+        $createdModules = [];
+        $createdVideos = [];
+        $totalDuration = 0;
+
+        // Process modules and videos
+        foreach ($validated['modules'] as $moduleData) {
+            // Create module
+            $module = Module::create([
+                'course_id' => $course->id,
+                'title' => $moduleData['title'],
+                'description' => $moduleData['description'] ?? null,
+                'order_index' => $moduleData['order_index'],
             ]);
 
-            DB::beginTransaction();
+            $createdModules[] = $module;
 
-            // Prepare course data
-            $courseData = [
-                'title' => $validated['title'],
-                'description' => $validated['description'],
-                'subject_id' => $validated['subject_id'],
-                'price' => $validated['price'],
-                'old_price' => $validated['old_price'] ?? null,
-                'is_published' => $validated['is_published'] ?? false,
-                'teacher_id' => Auth::id(),
-            ];
+            // Process videos for this module
+            if (!empty($moduleData['videos'])) {
+                foreach ($moduleData['videos'] as $videoData) {
+                    // Upload video file
+                    $videoFile = $videoData['file'];
+                    $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+                    $videoPath = $videoFile->storeAs('public/videos', $videoName);
 
-            // Handle thumbnail upload
-            if ($request->hasFile('thumbnail_url')) {
-                $thumbnail = $request->file('thumbnail_url');
-                $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-                $thumbnailPath = $thumbnail->storeAs('public/thumbnails', $thumbnailName);
-                $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
-            }
+                    // Create video lesson
+                    $videoLesson = VideoLesson::create([
+                        'module_id' => $module->id,
+                        'title' => $videoData['title'],
+                        'description' => $videoData['description'] ?? null,
+                        'duration_hours' => $videoData['duration_hours'] ?? 0,
+                        'video_url' => 'videos/' . $videoName,
+                        'video_path' => $videoPath,
+                        'filename' => $videoName,
+                        'is_published' => $videoData['is_published'] ?? false,
+                    ]);
 
-            // Create course
-            $course = Course::create($courseData);
-
-            $createdModules = [];
-            $createdVideos = [];
-            $totalDuration = 0;
-
-            // Process modules and videos
-            foreach ($validated['modules'] as $moduleData) {
-                // Create module
-                $module = Module::create([
-                    'course_id' => $course->id,
-                    'title' => $moduleData['title'],
-                    'description' => $moduleData['description'] ?? null,
-                    'order_index' => $moduleData['order_index'],
-                ]);
-
-                $createdModules[] = $module;
-
-                // Process videos for this module
-                if (!empty($moduleData['videos'])) {
-                    foreach ($moduleData['videos'] as $videoData) {
-                        // Upload video file
-                        $videoFile = $videoData['file'];
-                        $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                        $videoPath = $videoFile->storeAs('public/videos', $videoName);
-
-                        // Create video lesson
-                        $videoLesson = VideoLesson::create([
-                            'module_id' => $module->id,
-                            'title' => $videoData['title'],
-                            'description' => $videoData['description'] ?? null,
-                            'duration_hours' => $videoData['duration_hours'] ?? 0,
-                            'video_url' => 'videos/' . $videoName,
-                            'video_path' => $videoPath,
-                            'filename' => $videoName,
-                            'is_published' => $videoData['is_published'] ?? false,
-                        ]);
-
-                        $createdVideos[] = $videoLesson;
-                        $totalDuration += $videoLesson->duration_hours;
-                    }
+                    $createdVideos[] = $videoLesson;
+                    $totalDuration += $videoLesson->duration_hours;
                 }
             }
+        }
 
-            DB::commit();
+        DB::commit();
 
-            // Prepare statistics
-            $statistics = [
-                'total_modules' => count($createdModules),
-                'total_videos' => count($createdVideos),
-                'total_duration_hours' => round($totalDuration, 2),
-            ];
+        return response()->json([
+            'success' => true,
+            'message' => 'Course created successfully with %d module%s and %d video%s',
+            'data' => [
+                'course' => $course,
+                'modules' => $createdModules,
+                'videos' => $createdVideos,
+            ]
 
-            // Log successful creation
-            Log::info('Course created successfully', [
-                'course_id' => $course->id,
-                'teacher_id' => Auth::id(),
-                'modules_count' => $statistics['total_modules'],
-                'videos_count' => $statistics['total_videos'],
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => sprintf(
-                    'Course created successfully with %d module%s and %d video%s',
-                    $statistics['total_modules'],
-                    $statistics['total_modules'] > 1 ? 's' : '',
-                    $statistics['total_videos'],
-                    $statistics['total_videos'] > 1 ? 's' : ''
-                ),
-                'data' => [
-                    'course' => $course->fresh(),
-                    'modules' => $createdModules,
-                    'videos' => $createdVideos,
-                    'statistics' => $statistics,
-                ]
-            ], 201);
-
-        // } catch (\Illuminate\Validation\ValidationException $e) {
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Validation failed',
-        //         'errors' => $e->errors()
-        //     ], 422);
-
-        // } catch (\Throwable $e) {
-        //     DB::rollBack();
-
-        //     // Cleanup uploaded files on failure
-        //     $this->cleanupFailedUpload($request);
-
-        //     // Log the error
-        //     Log::error('Course creation failed', [
-        //         'teacher_id' => Auth::id(),
-        //         'error' => $e->getMessage(),
-        //         'trace' => $e->getTraceAsString()
-        //     ]);
-
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Failed to create course. Please try again.',
-        //         'error' => config('app.debug') ? $e->getMessage() : 'An error occurred while processing your request'
-        //     ], 500);
-        // }
+        ], 201);
     }
 
     /**

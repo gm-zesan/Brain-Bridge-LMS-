@@ -130,6 +130,519 @@
                 ]
             }
         },
+        "/api/slots": {
+            "get": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Get all available slots (filter by teacher/date)",
+                "operationId": "93120f556ae91c2e69713991c0ded95a",
+                "parameters": [
+                    {
+                        "name": "teacher_id",
+                        "in": "query",
+                        "description": "Filter slots by teacher ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Filter slots by date (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of available slots",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "slots": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "teacher": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "email": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "subject": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "time": {
+                                                        "type": "string"
+                                                    },
+                                                    "available_seats": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/slots/{id}": {
+            "get": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Get full details of a slot",
+                "operationId": "28482fa93e51b33a7a6252eda122c576",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the slot",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Slot details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "teacher": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "email": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "subject_id": {
+                                            "type": "integer"
+                                        },
+                                        "available_date": {
+                                            "type": "string",
+                                            "format": "date"
+                                        },
+                                        "slots": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "start_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "end_time": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "price": {
+                                            "type": "number",
+                                            "format": "float"
+                                        },
+                                        "description": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/slots/book": {
+            "post": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Student books a slot",
+                "operationId": "ce5fd3b7f8d4afaf35edd01280accc4c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "slot_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Booking successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot booked successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "meeting_link": {
+                                                    "type": "string",
+                                                    "example": "https://meet.google.com/abc-defg-hij"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/teacher/slots": {
+            "get": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Teacher views their own slots",
+                "operationId": "b4d333fac1d43bc1007602287c0ff4c6",
+                "responses": {
+                    "200": {
+                        "description": "Teacher's slots"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Teacher creates one or more slots",
+                "operationId": "737a767aa7ce1279038fd1509ea5dd60",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "subject_id": {
+                                        "type": "integer"
+                                    },
+                                    "available_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "slots": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "09:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "11:00"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "one_to_one",
+                                            "group"
+                                        ]
+                                    },
+                                    "price": {
+                                        "type": "number"
+                                    },
+                                    "max_students": {
+                                        "type": "integer"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Slots created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "teacher_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "subject_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "available_date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "start_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "end_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    },
+                                                    "price": {
+                                                        "type": "number"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "max_students": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/teacher/slots/{id}": {
+            "put": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Teacher updates a slot",
+                "operationId": "bde2393442ade35a9261b0b728da82ce",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "subject_id": {
+                                        "type": "integer"
+                                    },
+                                    "available_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "start_time": {
+                                        "type": "string"
+                                    },
+                                    "end_time": {
+                                        "type": "string"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "one_to_one",
+                                            "group"
+                                        ]
+                                    },
+                                    "price": {
+                                        "type": "number"
+                                    },
+                                    "max_students": {
+                                        "type": "integer"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Slot updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Teacher deletes a slot",
+                "operationId": "639aec901f20f03aecefce387ac366c1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Slot deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/courses": {
             "get": {
                 "tags": [
@@ -2553,6 +3066,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Available Slots",
+            "description": "API Endpoints for Available Slots and Booking"
+        },
         {
             "name": "Courses",
             "description": "API Endpoints for managing courses"

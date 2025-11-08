@@ -36,4 +36,15 @@ class Teacher extends Model
         return $this->hasMany(TeacherSkill::class);
     }
 
+    public function availableSlots()
+    {
+        return $this->hasMany(AvailableSlot::class, 'teacher_id');
+    }
+
+    public function sessions()
+    {
+        return $this->hasMany(LessonSession::class, 'teacher_id');
+    }
+
+
 }

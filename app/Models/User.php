@@ -65,4 +65,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
+
+    public function availableSlots()
+    {
+        return $this->hasMany(AvailableSlot::class, 'teacher_id');
+    }
+
 }

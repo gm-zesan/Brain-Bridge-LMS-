@@ -14,13 +14,18 @@ return new class extends Migration
         Schema::create('available_slots', function (Blueprint $table) {
             $table->id();
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
-            $table->dateTime('start_time');
-            $table->dateTime('end_time');
-            $table->longText('recurrence_rule')->nullable();
+            $table->foreignId('subject_id')->nullable()->constrained('subjects')->onDelete('set null');
+            $table->enum('type', ['one_to_one', 'group'])->default('one_to_one');
+            $table->decimal('price', 8, 2)->nullable();
+            $table->text('description')->nullable();
+            $table->date('available_date');
+            $table->time('start_time');
+            $table->time('end_time');
             $table->boolean('is_booked')->default(false);
-            $table->timestamps();
+            $table->integer('max_students')->default(1);
+            $table->integer('booked_count')->default(0);
 
-            $table->unique(['teacher_id', 'start_time', 'end_time'], 'unique_teacher_slot');
+            $table->timestamps();
         });
     }
 

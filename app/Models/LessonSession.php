@@ -7,17 +7,25 @@ use Illuminate\Database\Eloquent\Model;
 class LessonSession extends Model
 {
     protected $fillable = [
+        'slot_id',
         'student_id',
         'teacher_id',
-        'skill_id',
         'subject_id',
         'scheduled_start_time',
         'scheduled_end_time',
-        'status',
         'session_type',
+        'status',
         'price',
-        'platform_session_id',
+        'meeting_platform',
+        'meeting_link',
+        'meeting_id',
+        'description'
     ];
+
+    public function slot()
+    {
+        return $this->belongsTo(AvailableSlot::class, 'slot_id');
+    }
 
     public function student()
     {
@@ -29,13 +37,13 @@ class LessonSession extends Model
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    public function skill()
-    {
-        return $this->belongsTo(Skill::class, 'skill_id');
-    }
-
     public function subject()
     {
         return $this->belongsTo(Subject::class, 'subject_id');
+    }
+
+    public function history()
+    {
+        return $this->hasOne(SessionHistory::class, 'lesson_session_id');
     }
 }

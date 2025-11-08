@@ -24,6 +24,9 @@ return new class extends Migration
             $table->string('address')->nullable();
             $table->string('profile_picture')->nullable();
             $table->boolean('is_active')->default(false);
+            $table->text('google_access_token')->nullable();
+            $table->text('google_refresh_token')->nullable();
+            $table->dateTime('google_token_expires_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

@@ -673,7 +673,7 @@ class CourseController extends Controller
      *     @OA\Response(response=401, description="Unauthorized")
      * )
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, Course $course)
     {
         // Validate request
         $validated = $request->validate([
@@ -706,9 +706,7 @@ class CourseController extends Controller
         DB::beginTransaction();
 
         try {
-            // Find the course
-            $course = Course::findOrFail($id);
-
+            $course->load('modules.videoLessons');
             // Update course data
             $course->update([
                 'title' => $validated['title'],
@@ -763,7 +761,7 @@ class CourseController extends Controller
 
                 // Handle videos
                 if (!empty($moduleData['videos'])) {
-                    $existingVideoIds = $module->videos->pluck('id')->toArray();
+                    $existingVideoIds = $module->videoLessons->pluck('id')->toArray();
                     $keptVideoIds = [];
 
                     foreach ($moduleData['videos'] as $videoData) {
@@ -824,7 +822,7 @@ class CourseController extends Controller
             if (!empty($modulesToDelete)) {
                 $modules = Module::whereIn('id', $modulesToDelete)->get();
                 foreach ($modules as $mod) {
-                    $mod->videos()->delete();
+                    $mod->videoLessons()->delete();
                     $mod->delete();
                 }
             }
@@ -869,17 +867,15 @@ class CourseController extends Controller
      *     @OA\Response(response=401, description="Unauthorized")
      * )
      */
-    public function destroy($id)
+    public function destroy(Course $course)
     {
         DB::beginTransaction();
 
         try {
-            // Find the course
-            $course = Course::findOrFail($id);
-
+            $course->load('modules.videoLessons');
             // Delete modules and their videos
             foreach ($course->modules as $module) {
-                foreach ($module->videos as $video) {
+                foreach ($module->videoLessons as $video) {
                     // Delete video file from storage
                     if ($video->video_url && Storage::disk('public')->exists($video->video_url)) {
                         Storage::disk('public')->delete($video->video_url);

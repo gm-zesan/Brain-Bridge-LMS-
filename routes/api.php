@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\FirebaseAuthController;
+use App\Http\Controllers\Api\V1\AvailableSlotController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\GoogleAuthController;
+use App\Http\Controllers\Api\V1\LessonSessionController;
 use App\Http\Controllers\Api\V1\ModuleController;
 use App\Http\Controllers\Api\V1\SkillController;
 use App\Http\Controllers\Api\V1\StudentController;
@@ -48,11 +51,32 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('subjects', SubjectController::class);
     Route::apiResource('skills', SkillController::class);
     
+    
     Route::apiResource('courses', CourseController::class);
     Route::apiResource('modules', ModuleController::class);
     Route::apiResource('video-lessons', VideoLessonController::class);
 
 
+    // available slots
+    // Teacher actions
+    Route::get('/teacher/slots', [AvailableSlotController::class, 'mySlots']);
+    Route::post('/teacher/slots', [AvailableSlotController::class, 'store']);
+    Route::put('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'update']);
+    Route::delete('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'destroy']);
+
+    // Student actions
+    Route::get('/slots', [AvailableSlotController::class, 'index']);
+    Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
+    Route::post('/slots/book', [AvailableSlotController::class, 'bookSlot']);
+
+
+    // Lesson Sessions booking
+    Route::post('/lesson-sessions', [LessonSessionController::class, 'store']);
+    Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle']);
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+
+
+    // Transaction Routes
     Route::prefix('transactions')->group(function () {
         Route::get('/', [TransactionController::class, 'index']);
         Route::post('/stripe/initiate', [TransactionController::class, 'initiateStripePayment']);

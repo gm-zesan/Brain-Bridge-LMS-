@@ -381,7 +381,7 @@ class CourseController extends Controller
         if ($request->hasFile('thumbnail_url')) {
             $thumbnail = $request->file('thumbnail_url');
             $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-            $thumbnailPath = $thumbnail->storeAs('public/thumbnails', $thumbnailName);
+            $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName);
             $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
         }
 
@@ -410,7 +410,7 @@ class CourseController extends Controller
                     // Upload video file
                     $videoFile = $videoData['file'];
                     $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                    $videoPath = $videoFile->storeAs('public/videos', $videoName);
+                    $videoPath = $videoFile->storeAs('videos', $videoName);
 
                     // Create video lesson
                     $videoLesson = VideoLesson::create([
@@ -457,7 +457,7 @@ class CourseController extends Controller
             if ($request->hasFile('thumbnail_url')) {
                 $thumbnail = $request->file('thumbnail_url');
                 $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-                $thumbnailPath = 'public/thumbnails/' . $thumbnailName;
+                $thumbnailPath = 'thumbnails/' . $thumbnailName;
                 
                 if (Storage::exists($thumbnailPath)) {
                     Storage::delete($thumbnailPath);
@@ -472,7 +472,7 @@ class CourseController extends Controller
                             if (isset($video['file'])) {
                                 $videoFile = $video['file'];
                                 $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                                $videoPath = 'public/videos/' . $videoName;
+                                $videoPath = 'videos/' . $videoName;
                                 
                                 if (Storage::exists($videoPath)) {
                                     Storage::delete($videoPath);
@@ -720,13 +720,13 @@ class CourseController extends Controller
             // Handle thumbnail update
             if ($request->hasFile('thumbnail_url')) {
                 // Delete old thumbnail if exists
-                if ($course->thumbnail_url && Storage::exists('public/' . $course->thumbnail_url)) {
-                    Storage::delete('public/' . $course->thumbnail_url);
+                if ($course->thumbnail_url && Storage::exists($course->thumbnail_url)) {
+                    Storage::delete($course->thumbnail_url);
                 }
 
                 $thumbnail = $request->file('thumbnail_url');
                 $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-                $thumbnail->storeAs('public/thumbnails', $thumbnailName);
+                $thumbnail->storeAs('thumbnails', $thumbnailName);
                 $course->update(['thumbnail_url' => 'thumbnails/' . $thumbnailName]);
             }
 
@@ -777,13 +777,13 @@ class CourseController extends Controller
 
                             // Handle video file update
                             if (!empty($videoData['file'])) {
-                                if ($videoLesson->video_url && Storage::exists('public/' . $videoLesson->video_url)) {
-                                    Storage::delete('public/' . $videoLesson->video_url);
+                                if ($videoLesson->video_url && Storage::exists($videoLesson->video_url)) {
+                                    Storage::delete($videoLesson->video_url);
                                 }
 
                                 $videoFile = $videoData['file'];
                                 $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                                $videoFile->storeAs('public/videos', $videoName);
+                                $videoFile->storeAs('videos', $videoName);
                                 $videoLesson->update([
                                     'video_url' => 'videos/' . $videoName,
                                     'filename' => $videoName,
@@ -793,7 +793,7 @@ class CourseController extends Controller
                             // Create new video
                             $videoFile = $videoData['file'];
                             $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                            $videoFile->storeAs('public/videos', $videoName);
+                            $videoFile->storeAs('videos', $videoName);
 
                             $videoLesson = VideoLesson::create([
                                 'module_id' => $module->id,

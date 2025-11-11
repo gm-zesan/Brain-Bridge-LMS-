@@ -15,10 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('subject_id')->nullable()->constrained('subjects')->onDelete('set null');
+            $table->string('title');
             $table->enum('type', ['one_to_one', 'group'])->default('one_to_one');
             $table->decimal('price', 8, 2)->nullable();
             $table->text('description')->nullable();
-            $table->date('available_date');
+            $table->date('from_date');
+            $table->date('to_date');
             $table->time('start_time');
             $table->time('end_time');
             $table->boolean('is_booked')->default(false);

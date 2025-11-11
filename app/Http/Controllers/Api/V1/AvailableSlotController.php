@@ -74,36 +74,41 @@ class AvailableSlotController extends Controller
     public function index(Request $request)
     {
         $query = AvailableSlot::with('teacher:id,name,email', 'subject:id,name');
-
+        
         // Filter by teacher
         if ($request->filled('teacher_id')) {
             $query->where('teacher_id', $request->teacher_id);
         }
-
-        // Filter by date
+        
+        // Filter by date - check if the date falls within the slot's date range
         if ($request->filled('date')) {
-            $query->where('available_date', $request->date);
+            $query->where('from_date', '<=', $request->date)
+                ->where('to_date', '>=', $request->date);
         }
-
+        
         // For students: only show unbooked slots
         if (Auth::user()->hasRole('student')) {
             $query->whereColumn('booked_count', '<', 'max_students');
         }
-
-        $slots = $query->orderBy('available_date')
+        
+        $slots = $query->orderBy('from_date')
                     ->orderBy('start_time')
                     ->get()
                     ->map(function ($slot) {
                         return [
                             'id' => $slot->id,
+                            'title' => $slot->title,
                             'teacher' => $slot->teacher,
                             'subject' => $slot->subject,
-                            'date' => $slot->available_date,
+                            'from_date' => $slot->from_date,
+                            'to_date' => $slot->to_date,
                             'time' => date('g:i A', strtotime($slot->start_time)) . ' - ' . date('g:i A', strtotime($slot->end_time)),
                             'available_seats' => $slot->max_students - $slot->booked_count,
+                            'type' => $slot->type,
+                            'price' => $slot->price,
                         ];
                     });
-
+        
         return response()->json([
             'slots' => $slots
         ], 200);
@@ -149,33 +154,38 @@ class AvailableSlotController extends Controller
      */
     public function show($id)
     {
-        // Find the slot with teacher & subject
-        $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')
-            ->findOrFail($id);
-
-        // Get all slots of the same teacher on the same date
-        $allSlotsSameDay = AvailableSlot::where('teacher_id', $slot->teacher_id)
-            ->where('available_date', $slot->available_date)
+        $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')->findOrFail($id);
+        
+        // Get all slots of the same teacher within the same date range
+        $allSlotsSamePeriod = AvailableSlot::where('teacher_id', $slot->teacher_id)
+            ->where('from_date', $slot->from_date)
+            ->where('to_date', $slot->to_date)
             ->orderBy('start_time')
-            ->get(['start_time', 'end_time']);
-
-        // Format time nicely
-        $formattedSlots = $allSlotsSameDay->map(function ($s) {
+            ->get(['id', 'start_time', 'end_time', 'booked_count', 'max_students']);
+        
+        // Format time slots with availability
+        $formattedSlots = $allSlotsSamePeriod->map(function ($s) {
             return [
+                'id' => $s->id,
                 'start_time' => date('H:i', strtotime($s->start_time)),
                 'end_time' => date('H:i', strtotime($s->end_time)),
+                'available_seats' => $s->max_students - $s->booked_count,
             ];
         });
-
+        
         return response()->json([
             'id' => $slot->id,
+            'title' => $slot->title,
             'teacher' => $slot->teacher,
+            'subject' => $slot->subject,
             'subject_id' => $slot->subject_id,
-            'available_date' => $slot->available_date,
+            'from_date' => $slot->from_date,
+            'to_date' => $slot->to_date,
             'slots' => $formattedSlots,
-            'type' => $slot->type, // one_to_one / group
+            'type' => $slot->type,
             'price' => $slot->price,
             'description' => $slot->description,
+            'available_seats' => $slot->max_students - $slot->booked_count,
         ]);
     }
 
@@ -216,6 +226,11 @@ class AvailableSlotController extends Controller
         if ($slot->booked_count >= $slot->max_students) {
             return response()->json(['message' => 'This slot is already full'], 400);
         }
+
+        if (LessonSession::where('slot_id', $slot->id)->where('student_id', Auth::id())->exists()) {
+            return response()->json(['message' => 'You already booked this slot'], 400);
+        }
+
 
         // 1️⃣ Create meeting automatically
         $meeting = $this->meetingService->createGoogleMeet(
@@ -304,7 +319,8 @@ class AvailableSlotController extends Controller
      *                      @OA\Property(property="id", type="integer"),
      *                      @OA\Property(property="teacher_id", type="integer"),
      *                      @OA\Property(property="subject_id", type="integer"),
-     *                      @OA\Property(property="available_date", type="string", format="date"),
+     *                      @OA\Property(property="from_date", type="string", format="date"),
+     *                      @OA\Property(property="to_date", type="string", format="date"),
      *                      @OA\Property(property="start_time", type="string"),
      *                      @OA\Property(property="end_time", type="string"),
      *                      @OA\Property(property="type", type="string"),
@@ -320,24 +336,37 @@ class AvailableSlotController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'title' => 'required',
             'subject_id' => 'required|exists:subjects,id',
-            'available_date' => 'required|date',
+            'from_date' => 'required|date',
+            'to_date' => 'required|date|after_or_equal:from_date',
             'slots' => 'required|array|min:1',
             'slots.*.start_time' => 'required|date_format:H:i',
             'slots.*.end_time' => 'required|date_format:H:i|after:slots.*.start_time',
             'type' => 'required|in:one_to_one,group',
             'price' => 'nullable|numeric|min:0',
-            'max_students' => 'required_if:type,group|integer|min:2',
+            'max_students' => 'required_if:type,group|integer|min:1',
             'description' => 'nullable|string',
         ]);
+
 
         $created = [];
 
         foreach ($validated['slots'] as $slot) {
+
+            if (AvailableSlot::where('teacher_id', Auth::id())
+                ->where('from_date', $validated['from_date'])
+                ->where('start_time', $slot['start_time'])
+                ->exists()) {
+                continue;
+            }
+
             $created[] = AvailableSlot::create([
+                'title' => $validated['title'],
                 'teacher_id' => Auth::id(),
                 'subject_id' => $validated['subject_id'],
-                'available_date' => $validated['available_date'],
+                'from_date' => $validated['from_date'],
+                'to_date' => $validated['to_date'],
                 'start_time' => $slot['start_time'],
                 'end_time' => $slot['end_time'],
                 'type' => $validated['type'],
@@ -369,7 +398,8 @@ class AvailableSlotController extends Controller
      *         required=false,
      *         @OA\JsonContent(
      *             @OA\Property(property="subject_id", type="integer"),
-     *             @OA\Property(property="available_date", type="string", format="date"),
+     *             @OA\Property(property="from_date", type="string", format="date"),
+     *             @OA\Property(property="to_date", type="string", format="date
      *             @OA\Property(property="start_time", type="string"),
      *             @OA\Property(property="end_time", type="string"),
      *             @OA\Property(property="type", type="string", enum={"one_to_one","group"}),
@@ -389,20 +419,27 @@ class AvailableSlotController extends Controller
      *     )
      * )
      */
+
     public function update(Request $request, AvailableSlot $availableSlot)
     {
+        if ($availableSlot->teacher_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         if ($availableSlot->booked_count > 0) {
             return response()->json(['message' => 'Cannot update a booked slot'], 400);
         }
 
         $validated = $request->validate([
+            'title' => 'sometimes|string',
             'subject_id' => 'sometimes|exists:subjects,id',
-            'available_date' => 'sometimes|date',
+            'from_date' => 'sometimes|date',
+            'to_date' => 'sometimes|date|after_or_equal:from_date',
             'start_time' => 'sometimes|date_format:H:i',
             'end_time' => 'sometimes|date_format:H:i|after:start_time',
             'type' => 'sometimes|in:one_to_one,group',
             'price' => 'nullable|numeric|min:0',
-            'max_students' => 'required_if:type,group|integer|min:2',
+            'max_students' => 'required|integer|min:1',
             'description' => 'nullable|string',
         ]);
 
@@ -439,6 +476,9 @@ class AvailableSlotController extends Controller
      */
     public function destroy(AvailableSlot $availableSlot)
     {
+        if ($availableSlot->teacher_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
         if ($availableSlot->booked_count > 0) {
             return response()->json(['message' => 'Cannot delete a booked slot'], 400);
         }
@@ -464,13 +504,17 @@ class AvailableSlotController extends Controller
      */
     public function mySlots()
     {
-        $slots = AvailableSlot::where('teacher_id', Auth::id())
-            ->with('subject')
-            ->orderByDesc('available_date')
-            ->orderBy('start_time')
-            ->get();
+        $query = AvailableSlot::where('teacher_id', Auth::id())
+                ->with('subject')
+                ->orderBy('from_date', 'asc')
+                ->orderBy('start_time', 'asc');
 
-        return response()->json(['slots' => $slots]);
+        $slots = $query->paginate(10);
+
+        return response()->json([
+            'success' => true,
+            'slots' => $slots
+        ]);
     }
 
 }

@@ -9,10 +9,12 @@ class AvailableSlot extends Model
     protected $fillable = [
         'teacher_id',
         'subject_id',
+        'title',
         'type',
         'price',
         'description',
-        'available_date',
+        'from_date',
+        'to_date',
         'start_time',
         'end_time',
         'is_booked',
@@ -21,7 +23,10 @@ class AvailableSlot extends Model
     ];
 
     protected $casts = [
-        'available_date' => 'date',
+        'from_date' => 'date',
+        'to_date' => 'date',
+        'start_time' => 'time',
+        'end_time' => 'time',
         'is_booked' => 'boolean',
     ];
 

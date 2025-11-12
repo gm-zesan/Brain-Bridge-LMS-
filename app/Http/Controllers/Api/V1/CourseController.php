@@ -20,6 +20,68 @@ use Illuminate\Support\Facades\Storage;
  */
 class CourseController extends Controller
 {
+
+    /**
+     * @OA\Get(
+     *     path="/api/public-courses",
+     *     tags={"Courses"},
+     *     summary="Get all published courses for public access",
+     *    @OA\Response(response=200, description="List of published courses retrieved successfully")
+     */
+
+    public function allCourses()
+    {
+        $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons'])
+            ->where('is_published', true)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $courses,
+        ], 200);
+    }
+
+    
+    /**
+     * @OA\Get(
+     *     path="/api/public-courses/{id}",
+     *     tags={"Courses"},
+     *     summary="Get a specific course by ID",
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Course ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Course retrieved successfully"),
+     *     @OA\Response(response=404, description="Course not found")
+     * )
+     */
+    public function courseDetails(Course $course)
+    {
+        if (!$course) {
+            return response()->json(['message' => 'Course not found'], 404);
+        }
+        
+        $course->load('subject', 'teacher', 'modules', 'modules.videoLessons');
+
+        $course->modules->transform(function ($module) {
+            $module->videoLessons->transform(function ($video, $index) {
+                $video->is_accessible = $index === 0;
+                if ($index !== 0) {
+                    unset($video->video_url);
+                }
+                return $video;
+            });
+            return $module;
+        });
+
+        return response()->json($course, 200);
+    }
+
+
     /**
      * @OA\Get(
      *     path="/api/courses",
@@ -443,177 +505,6 @@ class CourseController extends Controller
 
         ], 201);
     }
-
-    /**
-     * Cleanup uploaded files if course creation fails
-     *
-     * @param Request $request
-     * @return void
-     */
-    private function cleanupFailedUpload(Request $request): void
-    {
-        try {
-            // Delete thumbnail if uploaded
-            if ($request->hasFile('thumbnail_url')) {
-                $thumbnail = $request->file('thumbnail_url');
-                $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-                $thumbnailPath = 'thumbnails/' . $thumbnailName;
-                
-                if (Storage::exists($thumbnailPath)) {
-                    Storage::delete($thumbnailPath);
-                }
-            }
-
-            // Delete videos if uploaded
-            if ($request->has('modules')) {
-                foreach ($request->modules as $module) {
-                    if (!empty($module['videos'])) {
-                        foreach ($module['videos'] as $video) {
-                            if (isset($video['file'])) {
-                                $videoFile = $video['file'];
-                                $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                                $videoPath = 'videos/' . $videoName;
-                                
-                                if (Storage::exists($videoPath)) {
-                                    Storage::delete($videoPath);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('Failed to cleanup uploaded files', [
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-
-    
-    
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         // Course
-    //         'title' => 'required|string|max:255',
-    //         'description' => 'required|string',
-    //         'thumbnail_url' => 'nullable|file|image|max:5120', // 5MB
-    //         'subject_id' => 'required|exists:subjects,id',
-    //         'price' => 'required|numeric',
-    //         'old_price' => 'nullable|numeric',
-    //         'is_published' => 'nullable|boolean',
-
-    //         // Modules array
-    //         'modules' => 'required|array|min:1',
-    //         'modules.*.title' => 'required|string|max:255',
-    //         'modules.*.description' => 'nullable|string',
-    //         'modules.*.order_index' => 'required|integer|min:1',
-
-    //         // Videos array inside modules
-    //         'modules.*.videos' => 'nullable|array',
-    //         'modules.*.videos.*.title' => 'required|string|max:255',
-    //         'modules.*.videos.*.description' => 'nullable|string',
-    //         'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
-    //         'modules.*.videos.*.file' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000',
-    //         'modules.*.videos.*.is_published' => 'nullable|boolean',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         // 1️⃣ Create Course
-    //         $courseData = [
-    //             'title' => $request->title,
-    //             'description' => $request->description,
-    //             'subject_id' => $request->subject_id,
-    //             'price' => $request->price,
-    //             'old_price' => $request->old_price,
-    //             'is_published' => $request->is_published ?? false,
-    //             'teacher_id' => Auth::id(),
-    //         ];
-
-    //         if ($request->hasFile('thumbnail_url')) {
-    //             $thumb = $request->file('thumbnail_url');
-    //             $thumbName = time() . '_' . $thumb->getClientOriginalName();
-    //             $thumbPath = $thumb->storeAs('public/thumbnails', $thumbName);
-    //             $courseData['thumbnail_url'] = 'thumbnails/' . $thumbName;
-    //         }
-
-    //         $course = Course::create($courseData);
-
-    //         $createdModules = [];
-    //         $createdVideos = [];
-
-    //         // 2️⃣ Create Modules and their Videos
-    //         foreach ($request->modules as $moduleInput) {
-    //             $module = Module::create([
-    //                 'course_id' => $course->id,
-    //                 'title' => $moduleInput['title'],
-    //                 'description' => $moduleInput['description'] ?? null,
-    //                 'order_index' => $moduleInput['order_index'],
-    //             ]);
-
-    //             $createdModules[] = $module;
-
-    //             if (!empty($moduleInput['videos'])) {
-    //                 foreach ($moduleInput['videos'] as $videoInput) {
-    //                     $videoFile = $videoInput['file'];
-    //                     $videoName = time() . '_' . $videoFile->getClientOriginalName();
-    //                     $videoPath = $videoFile->storeAs('public/videos', $videoName);
-
-    //                     $videoLesson = VideoLesson::create([
-    //                         'module_id' => $module->id,
-    //                         'title' => $videoInput['title'],
-    //                         'description' => $videoInput['description'] ?? null,
-    //                         'duration_hours' => $videoInput['duration_hours'] ?? 0,
-    //                         'video_url' => 'videos/' . $videoName,
-    //                         'video_path' => $videoPath,
-    //                         'filename' => $videoName,
-    //                         'is_published' => $videoInput['is_published'] ?? false,
-    //                     ]);
-
-    //                     $createdVideos[] = $videoLesson;
-    //                 }
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Course with modules & videos created successfully',
-    //             'data' => [
-    //                 'course' => $course,
-    //                 'modules' => $createdModules,
-    //                 'videos' => $createdVideos
-    //             ]
-    //         ], 201);
-
-    //     } catch (\Throwable $e) {
-    //         DB::rollBack();
-
-    //         // Cleanup files if something failed
-    //         if (isset($thumbPath) && Storage::exists($thumbPath)) {
-    //             Storage::delete($thumbPath);
-    //         }
-
-    //         if (!empty($createdVideos)) {
-    //             foreach ($createdVideos as $v) {
-    //                 if (Storage::exists($v->video_path)) {
-    //                     Storage::delete($v->video_path);
-    //                 }
-    //             }
-    //         }
-
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Failed to create course/modules/videos',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
 
 
 

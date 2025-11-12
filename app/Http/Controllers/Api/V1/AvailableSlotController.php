@@ -291,8 +291,10 @@ class AvailableSlotController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
+     *             @OA\Property(property="title", type="string"),
      *             @OA\Property(property="subject_id", type="integer"),
-     *             @OA\Property(property="available_date", type="string", format="date"),
+     *             @OA\Property(property="from_date", type="string", format="date"),
+     *             @OA\Property(property="to_date", type="string", format="date"),
      *             @OA\Property(property="slots", type="array",
      *                 @OA\Items(
      *                     @OA\Property(property="start_time", type="string", example="09:00"),
@@ -317,6 +319,7 @@ class AvailableSlotController extends Controller
      *                  @OA\Items(
      *                      type="object",
      *                      @OA\Property(property="id", type="integer"),
+     *                      @OA\Property(property="title", type="string"),
      *                      @OA\Property(property="teacher_id", type="integer"),
      *                      @OA\Property(property="subject_id", type="integer"),
      *                      @OA\Property(property="from_date", type="string", format="date"),
@@ -336,7 +339,7 @@ class AvailableSlotController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required',
+            'title' => 'required|string',
             'subject_id' => 'required|exists:subjects,id',
             'from_date' => 'required|date',
             'to_date' => 'required|date|after_or_equal:from_date',
@@ -353,14 +356,6 @@ class AvailableSlotController extends Controller
         $created = [];
 
         foreach ($validated['slots'] as $slot) {
-
-            if (AvailableSlot::where('teacher_id', Auth::id())
-                ->where('from_date', $validated['from_date'])
-                ->where('start_time', $slot['start_time'])
-                ->exists()) {
-                continue;
-            }
-
             $created[] = AvailableSlot::create([
                 'title' => $validated['title'],
                 'teacher_id' => Auth::id(),
@@ -397,6 +392,7 @@ class AvailableSlotController extends Controller
      *     @OA\RequestBody(
      *         required=false,
      *         @OA\JsonContent(
+     *             @OA\Property(property="title", type="string"),
      *             @OA\Property(property="subject_id", type="integer"),
      *             @OA\Property(property="from_date", type="string", format="date"),
      *             @OA\Property(property="to_date", type="string", format="date
@@ -510,6 +506,35 @@ class AvailableSlotController extends Controller
                 ->orderBy('start_time', 'asc');
 
         $slots = $query->paginate(10);
+
+        return response()->json([
+            'success' => true,
+            'slots' => $slots
+        ]);
+    }
+
+
+
+    /**
+     * @OA\Get(
+     *     path="teacher/slots/booked",
+     *     summary="Teacher views their own booked slots",
+     *     tags={"Available Slots"},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Teacher's slots",
+     *     )
+     * )
+     */
+
+    public function bookedSlots()
+    {
+        $slots = AvailableSlot::where('teacher_id', Auth::id())
+            ->where('is_booked', true)
+            ->with(['subject', 'session', 'session.student'])
+            ->orderBy('from_date', 'asc')
+            ->orderBy('start_time', 'asc')
+            ->paginate(10);
 
         return response()->json([
             'success' => true,

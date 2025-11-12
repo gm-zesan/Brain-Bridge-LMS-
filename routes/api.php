@@ -36,6 +36,16 @@ Route::post('/password/reset', [FirebaseAuthController::class, 'resetPassword'])
 Route::post('/google/login', [FirebaseAuthController::class, 'googleLogin']);
 
 
+// all courses 
+Route::get('public-courses', [CourseController::class, 'allCourses']);
+Route::get('public-courses/{id}', [CourseController::class, 'courseDetails']);
+
+
+// all slots
+Route::get('/slots', [AvailableSlotController::class, 'index']);
+Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
+
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [FirebaseAuthController::class, 'me']);
     Route::post('/logout', [FirebaseAuthController::class, 'logout']);
@@ -60,13 +70,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // available slots
     // Teacher actions
     Route::get('/teacher/slots', [AvailableSlotController::class, 'mySlots']);
+    Route::get('/teacher/slots/booked', [AvailableSlotController::class, 'bookedSlots']);
     Route::post('/teacher/slots', [AvailableSlotController::class, 'store']);
     Route::put('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'update']);
     Route::delete('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'destroy']);
 
     // Student actions
-    Route::get('/slots', [AvailableSlotController::class, 'index']);
-    Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
     Route::post('/slots/book', [AvailableSlotController::class, 'bookSlot']);
 
 

@@ -19,24 +19,9 @@ class FirebaseService
     {
         $factory = (new Factory)
             //Path to service account file
-            ->withServiceAccount(storage_path('app/firebase/brain-bridge-firebase-adminsdk.json'))
-            //Change This to firebase realtime database path
-            ->withDatabaseUri('https://brain-bridge-649e2-default-rtdb.firebaseio.com');
-
-        $this->database = $factory->createDatabase();
-        $this->messaging = $factory->createMessaging();
+            ->withServiceAccount(storage_path('app/firebase/brainbridge-storage-firebase-adminsdk.json'));
         $this->auth = $factory->createAuth();
         $this->storage = $factory->createStorage();
-    }
-
-    public function getDatabase(): Database
-    {
-        return $this->database;
-    }
-
-    public function getMessaging(): Messaging
-    {
-        return $this->messaging;
     }
 
     public function getAuth(): Auth
@@ -49,35 +34,57 @@ class FirebaseService
         return $this->storage;
     }
 
-    // Video upload helper method
-    public function uploadVideo($file, string $path = 'videos'): array
+    /**
+     * Upload course video with validation
+     */
+    public function uploadCourseVideo($file, string $courseId, array $options = []): array
     {
         try {
-            $bucket = $this->storage->getBucket();
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $path . '/' . $fileName;
+            // Validate file
+            $maxSize = $options['maxSize'] ?? 500 * 1024 * 1024; // 500MB default
+            $allowedMimes = $options['allowedMimes'] ?? ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
 
-            // Upload file
+            if ($file->getSize() > $maxSize) {
+                return [
+                    'success' => false,
+                    'error' => 'File size exceeds maximum allowed size'
+                ];
+            }
+
+            if (!in_array($file->getMimeType(), $allowedMimes)) {
+                return [
+                    'success' => false,
+                    'error' => 'Invalid file type. Only video files are allowed'
+                ];
+            }
+
+            $bucket = $this->storage->getBucket();
+            $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+            $filePath = "courses/{$courseId}/videos/{$fileName}";
+
+            // Upload file with metadata
             $bucket->upload(
                 fopen($file->getRealPath(), 'r'),
                 [
                     'name' => $filePath,
                     'metadata' => [
                         'contentType' => $file->getMimeType(),
+                        'metadata' => [
+                            'courseId' => $courseId,
+                            'originalName' => $file->getClientOriginalName(),
+                            'uploadedAt' => now()->toIso8601String(),
+                            'fileSize' => $file->getSize(),
+                        ]
                     ]
                 ]
             );
 
-            // Get download URL
-            $object = $bucket->object($filePath);
-            $expiresAt = new \DateTime('2099-01-01');
-            $downloadUrl = $object->signedUrl($expiresAt);
-
             return [
                 'success' => true,
-                'url' => $downloadUrl,
                 'path' => $filePath,
-                'filename' => $fileName
+                'filename' => $fileName,
+                'size' => $file->getSize(),
+                'mime_type' => $file->getMimeType()
             ];
         } catch (\Exception $e) {
             return [
@@ -87,16 +94,33 @@ class FirebaseService
         }
     }
 
-    // Video delete helper method
-    public function deleteVideo(string $filePath): bool
+    /**
+     * Delete file from storage
+     */
+    public function deleteFile(string $filePath): array
     {
         try {
             $bucket = $this->storage->getBucket();
             $object = $bucket->object($filePath);
+            
+            if (!$object->exists()) {
+                return [
+                    'success' => false,
+                    'error' => 'File not found'
+                ];
+            }
+
             $object->delete();
-            return true;
+            
+            return [
+                'success' => true,
+                'message' => 'File deleted successfully'
+            ];
         } catch (\Exception $e) {
-            return false;
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 }

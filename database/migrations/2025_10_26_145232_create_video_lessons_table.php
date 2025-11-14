@@ -17,8 +17,9 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->integer('duration_hours')->nullable();
-            $table->text('video_url');
             $table->string('video_path')->nullable();
+            $table->string('file_size')->nullable();
+            $table->string('mime_type')->nullable();
             $table->string('filename')->nullable();
             $table->boolean('is_published')->default(true);
             $table->timestamps();

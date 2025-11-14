@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Module;
 use App\Models\VideoLesson;
+use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -397,9 +398,117 @@ class CourseController extends Controller
      *     )
      * )
      */
+    // public function store(Request $request)
+    // {
+    //     // dd($request->all());
+    //     // Validate incoming request
+    //     $validated = $request->validate([
+    //         // Course validation
+    //         'title' => 'required|string|max:255',
+    //         'description' => 'required|string',
+    //         'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120', // 5MB
+    //         'subject_id' => 'required|exists:subjects,id',
+    //         'price' => 'required|numeric|min:0',
+    //         'old_price' => 'nullable|numeric|min:0',
+    //         'is_published' => 'nullable|boolean',
+
+    //         // Modules validation
+    //         'modules' => 'required|array|min:1',
+    //         'modules.*.title' => 'required|string|max:255',
+    //         'modules.*.description' => 'nullable|string',
+    //         'modules.*.order_index' => 'required|integer|min:1',
+
+    //         // Videos validation
+    //         'modules.*.videos' => 'nullable|array',
+    //         'modules.*.videos.*.title' => 'required|string|max:255',
+    //         'modules.*.videos.*.description' => 'nullable|string',
+    //         'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
+    //         'modules.*.videos.*.file' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000', // 500MB
+    //         'modules.*.videos.*.is_published' => 'nullable|boolean',
+    //     ]);
+
+    //     DB::beginTransaction();
+
+    //     // Prepare course data
+    //     $courseData = [
+    //         'title' => $validated['title'],
+    //         'description' => $validated['description'],
+    //         'subject_id' => $validated['subject_id'],
+    //         'price' => $validated['price'],
+    //         'old_price' => $validated['old_price'] ?? null,
+    //         'is_published' => $validated['is_published'] ?? false,
+    //         'teacher_id' => Auth::id(),
+    //     ];
+
+    //     // Handle thumbnail upload
+    //     if ($request->hasFile('thumbnail_url')) {
+    //         $thumbnail = $request->file('thumbnail_url');
+    //         $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
+    //         $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName);
+    //         $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
+    //     }
+
+    //     // Create course
+    //     $course = Course::create($courseData);
+
+    //     $createdModules = [];
+    //     $createdVideos = [];
+    //     $totalDuration = 0;
+
+    //     // Process modules and videos
+    //     foreach ($validated['modules'] as $moduleData) {
+    //         // Create module
+    //         $module = Module::create([
+    //             'course_id' => $course->id,
+    //             'title' => $moduleData['title'],
+    //             'description' => $moduleData['description'] ?? null,
+    //             'order_index' => $moduleData['order_index'],
+    //         ]);
+
+    //         $createdModules[] = $module;
+
+    //         // Process videos for this module
+    //         if (!empty($moduleData['videos'])) {
+    //             foreach ($moduleData['videos'] as $videoData) {
+    //                 // Upload video file
+    //                 $videoFile = $videoData['file'];
+    //                 $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+    //                 $videoPath = $videoFile->storeAs('videos', $videoName);
+
+    //                 // Create video lesson
+    //                 $videoLesson = VideoLesson::create([
+    //                     'module_id' => $module->id,
+    //                     'title' => $videoData['title'],
+    //                     'description' => $videoData['description'] ?? null,
+    //                     'duration_hours' => $videoData['duration_hours'] ?? 0,
+    //                     'video_url' => 'videos/' . $videoName,
+    //                     'video_path' => $videoPath,
+    //                     'filename' => $videoName,
+    //                     'is_published' => $videoData['is_published'] ?? false,
+    //                 ]);
+
+    //                 $createdVideos[] = $videoLesson;
+    //                 $totalDuration += $videoLesson->duration_hours;
+    //             }
+    //         }
+    //     }
+
+    //     DB::commit();
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'Course created successfully with %d module%s and %d video%s',
+    //         'data' => [
+    //             'course' => $course,
+    //             'modules' => $createdModules,
+    //             'videos' => $createdVideos,
+    //         ]
+
+    //     ], 201);
+    // }
+
     public function store(Request $request)
     {
-        // dd($request->all());
         // Validate incoming request
         $validated = $request->validate([
             // Course validation
@@ -428,82 +537,112 @@ class CourseController extends Controller
 
         DB::beginTransaction();
 
-        // Prepare course data
-        $courseData = [
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'subject_id' => $validated['subject_id'],
-            'price' => $validated['price'],
-            'old_price' => $validated['old_price'] ?? null,
-            'is_published' => $validated['is_published'] ?? false,
-            'teacher_id' => Auth::id(),
-        ];
+        try {
+            // Prepare course data
+            $courseData = [
+                'title' => $validated['title'],
+                'description' => $validated['description'],
+                'subject_id' => $validated['subject_id'],
+                'price' => $validated['price'],
+                'old_price' => $validated['old_price'] ?? null,
+                'is_published' => $validated['is_published'] ?? false,
+                'teacher_id' => Auth::id(),
+            ];
 
-        // Handle thumbnail upload
-        if ($request->hasFile('thumbnail_url')) {
-            $thumbnail = $request->file('thumbnail_url');
-            $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-            $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName);
-            $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
-        }
+            // Handle thumbnail upload (keep this local or upload to Firebase too)
+            if ($request->hasFile('thumbnail_url')) {
+                $thumbnail = $request->file('thumbnail_url');
+                $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
+                $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName);
+                $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
+            }
 
-        // Create course
-        $course = Course::create($courseData);
+            // Create course
+            $course = Course::create($courseData);
 
-        $createdModules = [];
-        $createdVideos = [];
-        $totalDuration = 0;
+            $createdModules = [];
+            $createdVideos = [];
+            $totalDuration = 0;
 
-        // Process modules and videos
-        foreach ($validated['modules'] as $moduleData) {
-            // Create module
-            $module = Module::create([
-                'course_id' => $course->id,
-                'title' => $moduleData['title'],
-                'description' => $moduleData['description'] ?? null,
-                'order_index' => $moduleData['order_index'],
-            ]);
+            // Initialize Firebase Service
+            $firebaseService = app(FirebaseService::class);
 
-            $createdModules[] = $module;
+            // Process modules and videos
+            foreach ($validated['modules'] as $moduleData) {
+                // Create module
+                $module = Module::create([
+                    'course_id' => $course->id,
+                    'title' => $moduleData['title'],
+                    'description' => $moduleData['description'] ?? null,
+                    'order_index' => $moduleData['order_index'],
+                ]);
 
-            // Process videos for this module
-            if (!empty($moduleData['videos'])) {
-                foreach ($moduleData['videos'] as $videoData) {
-                    // Upload video file
-                    $videoFile = $videoData['file'];
-                    $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                    $videoPath = $videoFile->storeAs('videos', $videoName);
+                $createdModules[] = $module;
 
-                    // Create video lesson
-                    $videoLesson = VideoLesson::create([
-                        'module_id' => $module->id,
-                        'title' => $videoData['title'],
-                        'description' => $videoData['description'] ?? null,
-                        'duration_hours' => $videoData['duration_hours'] ?? 0,
-                        'video_url' => 'videos/' . $videoName,
-                        'video_path' => $videoPath,
-                        'filename' => $videoName,
-                        'is_published' => $videoData['is_published'] ?? false,
-                    ]);
+                // Process videos for this module
+                if (!empty($moduleData['videos'])) {
+                    foreach ($moduleData['videos'] as $videoData) {
+                        // Upload video file to Firebase Storage
+                        $videoFile = $videoData['file'];
+                        
+                        $uploadResult = $firebaseService->uploadCourseVideo(
+                            $videoFile,
+                            $course->id,
+                            [
+                                'maxSize' => 500 * 1024 * 1024, // 500MB
+                                'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
+                            ]
+                        );
 
-                    $createdVideos[] = $videoLesson;
-                    $totalDuration += $videoLesson->duration_hours;
+                        if (!$uploadResult['success']) {
+                            // Rollback and return error
+                            DB::rollBack();
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Video upload failed: ' . $uploadResult['error']
+                            ], 500);
+                        }
+
+                        // Create video lesson with Firebase Storage data
+                        $videoLesson = VideoLesson::create([
+                            'module_id' => $module->id,
+                            'title' => $videoData['title'],
+                            'description' => $videoData['description'] ?? null,
+                            'duration_hours' => $videoData['duration_hours'] ?? 0,
+                            'video_path' => $uploadResult['path'], // Firebase storage path
+                            'filename' => $uploadResult['filename'],
+                            'file_size' => $uploadResult['size'],
+                            'mime_type' => $uploadResult['mime_type'],
+                            'is_published' => $videoData['is_published'] ?? false,
+                        ]);
+
+                        $createdVideos[] = $videoLesson;
+                        $totalDuration += $videoLesson->duration_hours;
+                    }
                 }
             }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Course created successfully',
+                'data' => [
+                    'course' => $course,
+                    'modules' => $createdModules,
+                    'videos' => $createdVideos,
+                    'total_duration' => $totalDuration
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create course: ' . $e->getMessage()
+            ], 500);
         }
-
-        DB::commit();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Course created successfully with %d module%s and %d video%s',
-            'data' => [
-                'course' => $course,
-                'modules' => $createdModules,
-                'videos' => $createdVideos,
-            ]
-
-        ], 201);
     }
 
 
@@ -598,6 +737,7 @@ class CourseController extends Controller
 
         try {
             $course->load('modules.videoLessons');
+            $firebaseService = app(FirebaseService::class);
             // Update course data
             $course->update([
                 'title' => $validated['title'],
@@ -668,31 +808,71 @@ class CourseController extends Controller
 
                             // Handle video file update
                             if (!empty($videoData['file'])) {
-                                if ($videoLesson->video_url && Storage::exists($videoLesson->video_url)) {
-                                    Storage::delete($videoLesson->video_url);
+                                // Delete old video from Firebase Storage
+                                if ($videoLesson->video_path) {
+                                    $firebaseService->deleteFile($videoLesson->video_path);
                                 }
 
+                                // Upload new video to Firebase
                                 $videoFile = $videoData['file'];
-                                $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                                $videoFile->storeAs('videos', $videoName);
+                                $uploadResult = $firebaseService->uploadCourseVideo(
+                                    $videoFile,
+                                    $course->id,
+                                    [
+                                        'maxSize' => 500 * 1024 * 1024,
+                                        'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
+                                    ]
+                                );
+
+                                if (!$uploadResult['success']) {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => 'Video upload failed: ' . $uploadResult['error']
+                                    ], 500);
+                                }
+
+                                // Update video with Firebase data
                                 $videoLesson->update([
-                                    'video_url' => 'videos/' . $videoName,
-                                    'filename' => $videoName,
+                                    'video_url' => $uploadResult['url'],
+                                    'video_path' => $uploadResult['path'],
+                                    'filename' => $uploadResult['filename'],
+                                    'file_size' => $uploadResult['size'],
+                                    'mime_type' => $uploadResult['mime_type'],
                                 ]);
                             }
                         } else {
                             // Create new video
                             $videoFile = $videoData['file'];
-                            $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                            $videoFile->storeAs('videos', $videoName);
+                            
+                            // Upload to Firebase
+                            $uploadResult = $firebaseService->uploadCourseVideo(
+                                $videoFile,
+                                $course->id,
+                                [
+                                    'maxSize' => 500 * 1024 * 1024,
+                                    'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
+                                ]
+                            );
+
+                            if (!$uploadResult['success']) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => 'Video upload failed: ' . $uploadResult['error']
+                                ], 500);
+                            }
 
                             $videoLesson = VideoLesson::create([
                                 'module_id' => $module->id,
                                 'title' => $videoData['title'],
                                 'description' => $videoData['description'] ?? null,
                                 'duration_hours' => $videoData['duration_hours'] ?? 0,
-                                'video_url' => 'videos/' . $videoName,
-                                'filename' => $videoName,
+                                'video_url' => $uploadResult['url'],
+                                'video_path' => $uploadResult['path'],
+                                'filename' => $uploadResult['filename'],
+                                'file_size' => $uploadResult['size'],
+                                'mime_type' => $uploadResult['mime_type'],
                                 'is_published' => $videoData['is_published'] ?? false,
                             ]);
                         }
@@ -702,9 +882,19 @@ class CourseController extends Controller
                         $totalDuration += $videoLesson->duration_hours;
                     }
 
-                    // Delete removed videos
+                    // Delete removed videos from database and Firebase Storage
                     $videosToDelete = array_diff($existingVideoIds, $keptVideoIds);
-                    VideoLesson::whereIn('id', $videosToDelete)->delete();
+                    if (!empty($videosToDelete)) {
+                        $deletedVideos = VideoLesson::whereIn('id', $videosToDelete)->get();
+                        foreach ($deletedVideos as $video) {
+                            // Delete from Firebase Storage
+                            if ($video->video_path) {
+                                $firebaseService->deleteFile($video->video_path);
+                            }
+                            // Delete from database
+                            $video->delete();
+                        }
+                    }
                 }
             }
 
@@ -713,7 +903,15 @@ class CourseController extends Controller
             if (!empty($modulesToDelete)) {
                 $modules = Module::whereIn('id', $modulesToDelete)->get();
                 foreach ($modules as $mod) {
+                    // Delete all videos in this module from Firebase
+                    foreach ($mod->videoLessons as $video) {
+                        if ($video->video_path) {
+                            $firebaseService->deleteFile($video->video_path);
+                        }
+                    }
+                    // Delete videos from database
                     $mod->videoLessons()->delete();
+                    // Delete module
                     $mod->delete();
                 }
             }
@@ -727,6 +925,7 @@ class CourseController extends Controller
                     'course' => $course,
                     'modules' => $updatedModules,
                     'videos' => $updatedVideos,
+                    'total_duration' => $totalDuration
                 ]
             ]);
 
@@ -764,12 +963,13 @@ class CourseController extends Controller
 
         try {
             $course->load('modules.videoLessons');
+            $firebaseService = app(FirebaseService::class);
             // Delete modules and their videos
             foreach ($course->modules as $module) {
                 foreach ($module->videoLessons as $video) {
                     // Delete video file from storage
-                    if ($video->video_url && Storage::disk('public')->exists($video->video_url)) {
-                        Storage::disk('public')->delete($video->video_url);
+                    if ($video->video_path) {
+                        $firebaseService->deleteFile($video->video_path);
                     }
                     $video->delete();
                 }

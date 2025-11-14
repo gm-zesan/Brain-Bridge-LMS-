@@ -11,9 +11,10 @@ class VideoLesson extends Model
         'title',
         'description',
         'duration_hours',
-        'video_url',
         'video_path',
         'filename',
+        'file_size',
+        'mime_type',
         'is_published',
     ];
 

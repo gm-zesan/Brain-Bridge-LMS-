@@ -19,7 +19,8 @@ class SubjectSeeder extends Seeder
             array('id' => '7','name' => 'Cricket','parent_id' => NULL,'created_at' => '2025-11-04 14:52:42','updated_at' => '2025-11-04 14:52:42'),
             array('id' => '8','name' => 'Football','parent_id' => NULL,'created_at' => '2025-11-04 14:52:48','updated_at' => '2025-11-04 14:52:48'),
             array('id' => '9','name' => 'Singing','parent_id' => NULL,'created_at' => '2025-11-04 14:53:10','updated_at' => '2025-11-04 14:53:10'),
-            array('id' => '12','name' => 'React Js','parent_id' => NULL,'created_at' => '2025-11-04 15:04:40','updated_at' => '2025-11-04 15:04:40')
+            array('id' => '12','name' => 'React Js','parent_id' => NULL,'created_at' => '2025-11-04 15:04:40','updated_at' => '2025-11-04 15:04:40'),
+            array('id' => '13','name' => 'JavaScript','parent_id' => NULL,'created_at' => '2025-11-04 15:04:46','updated_at' => '2025-11-04 15:04:46'),
         );
 
         foreach($subjects as $data)

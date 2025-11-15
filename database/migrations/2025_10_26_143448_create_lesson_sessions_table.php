@@ -31,6 +31,13 @@ return new class extends Migration
             $table->string('meeting_id')->nullable();       // zoom/google meeting ID
             $table->text('description')->nullable();
 
+            $table->string('payment_status')->default('pending'); // pending, paid, failed, refunded
+            $table->string('payment_intent_id')->nullable();
+            $table->string('payment_method')->nullable(); // stripe, paypal, etc.
+            $table->decimal('amount_paid', 10, 2)->default(0);
+            $table->string('currency', 3)->default('usd');
+            $table->timestamp('paid_at')->nullable();
+
             $table->timestamps();
         });
 

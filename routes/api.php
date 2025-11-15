@@ -76,7 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'destroy']);
 
     // Student actions
-    Route::post('/slots/book', [AvailableSlotController::class, 'bookSlot']);
+    Route::post('/slot/bookings/intent', [AvailableSlotController::class, 'createBookingIntent']);
+    Route::post('/slot/bookings/confirm', [AvailableSlotController::class, 'confirmBooking']);
 
 
     // Lesson Sessions booking

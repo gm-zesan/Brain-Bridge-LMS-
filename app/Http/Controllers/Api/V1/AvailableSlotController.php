@@ -8,9 +8,11 @@ use Illuminate\Http\Request;
 use App\Models\AvailableSlot;
 use App\Models\LessonSession;
 use App\Services\MeetingService;
+use App\Services\PaymentService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -22,10 +24,12 @@ use Illuminate\Support\Facades\Mail;
 class AvailableSlotController extends Controller
 {
     protected $meetingService;
+    protected $paymentService;
 
-    public function __construct(MeetingService $meetingService)
+    public function __construct(MeetingService $meetingService, PaymentService $paymentService)
     {
         $this->meetingService = $meetingService;
+        $this->paymentService = $paymentService;
     }
     /**
      * @OA\Get(
@@ -190,62 +194,39 @@ class AvailableSlotController extends Controller
     }
 
     
-    /**
-     * @OA\Post(
-     *     path="/api/slots/book",
-     *     summary="Student books a slot",
-     *     tags={"Available Slots"},
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             @OA\Property(property="slot_id", type="integer", example=1)
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Booking successful",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean"),
-     *             @OA\Property(property="message", type="string", example="Slot booked successfully"),
-     *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="meeting_link", type="string", example="https://meet.google.com/abc-defg-hij")
-     *             )
-     *         )
-     *     )
-     * )
-     */
+    
     public function bookSlot(Request $request)
     {
         $validated = $request->validate([
             'slot_id' => 'required|exists:available_slots,id',
         ]);
 
-        $slot = AvailableSlot::findOrFail($validated['slot_id']);
-        $teacher = $slot->teacher;
-
-        if ($slot->booked_count >= $slot->max_students) {
-            return response()->json(['message' => 'This slot is already full'], 400);
-        }
-
-        if (LessonSession::where('slot_id', $slot->id)->where('student_id', Auth::id())->exists()) {
-            return response()->json(['message' => 'You already booked this slot'], 400);
-        }
-
-
-        // 1️⃣ Create meeting automatically
-        $meeting = $this->meetingService->createGoogleMeet(
-            $teacher, 
-            Carbon::parse($slot->start_time),
-            Carbon::parse($slot->end_time),
-            'Lesson: '.$slot->subject->name ?? 'Session'
-        );
-
         DB::beginTransaction();
         try {
+            // Lock the slot to prevent race conditions
+            $slot = AvailableSlot::where('id', $validated['slot_id'])
+                ->with('teacher', 'subject')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Check availability
+            if ($slot->booked_count >= $slot->max_students) {
+                DB::rollBack();
+                return response()->json(['message' => 'This slot is already full'], 400);
+            }
+
+            // Check duplicate booking
+            if (LessonSession::where('slot_id', $slot->id)
+                    ->where('student_id', Auth::id())
+                    ->exists()) {
+                DB::rollBack();
+                return response()->json(['message' => 'You already booked this slot'], 400);
+            }
+
             // Create lesson session
             $session = LessonSession::create([
                 'slot_id' => $slot->id,
-                'teacher_id' => $teacher->id,
+                'teacher_id' => $slot->teacher_id,
                 'student_id' => Auth::id(),
                 'subject_id' => $slot->subject_id,
                 'scheduled_start_time' => $slot->start_time,
@@ -253,32 +234,456 @@ class AvailableSlotController extends Controller
                 'session_type' => $slot->type,
                 'status' => 'scheduled',
                 'price' => $slot->price ?? 0,
-                'meeting_platform' => $meeting['platform'] ?? null,
-                'meeting_link' => $meeting['meeting_link'] ?? null,
-                'meeting_id' => $meeting['meeting_id'] ?? null,
             ]);
 
-            $slot->increment('booked_count');
+            // Create Google Meet
+            $meeting = $this->meetingService->createGoogleMeet(
+                $slot->teacher,
+                Carbon::parse($slot->start_time),
+                Carbon::parse($slot->end_time),
+                'Lesson: ' . ($slot->subject->name ?? 'Session')
+            );
 
+            if ($meeting) {
+                $session->update([
+                    'meeting_platform' => $meeting['platform'],
+                    'meeting_link' => $meeting['meeting_link'],
+                    'meeting_id' => $meeting['meeting_id'],
+                ]);
+            }
+
+            // Update slot
+            $slot->increment('booked_count');
             if ($slot->booked_count >= $slot->max_students) {
                 $slot->update(['is_booked' => true]);
             }
 
-            Mail::to($teacher->email)->send(new SessionBookedMail($session, 'teacher'));
-            Mail::to(Auth::user()->email)->send(new SessionBookedMail($session, 'student'));
-
             DB::commit();
+
+            // Send emails AFTER commit
+            Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
+            Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
 
             return response()->json([
                 'success' => true,
                 'message' => 'Slot booked successfully',
                 'data' => [
+                    'session_id' => $session->id,
                     'meeting_link' => $meeting['meeting_link'] ?? null,
                 ]
             ]);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => $e->getMessage()], 500);
+            Log::error('Booking failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'Booking failed. Please try again.'
+            ], 500);
+        }
+    }
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/slot/bookings/intent",
+     *     summary="Create booking payment intent",
+     *     description="Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
+     *     operationId="createBookingIntent",
+     *     tags={"Available Slots"},
+     *     security={{"bearerAuth": {}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         description="Slot ID to book",
+     *         @OA\JsonContent(
+     *             required={"slot_id"},
+     *             @OA\Property(
+     *                 property="slot_id",
+     *                 type="integer",
+     *                 description="ID of the available slot to book",
+     *                 example=1
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Booking intent created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="requires_payment", type="boolean", example=true),
+     *             @OA\Property(property="client_secret", type="string", example="pi_xxxxx_secret_xxxxx"),
+     *             @OA\Property(property="payment_intent_id", type="string", example="pi_xxxxx"),
+     *             @OA\Property(property="amount", type="number", format="float", example=50.00),
+     *             @OA\Property(
+     *                 property="slot",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="subject", type="string", example="Mathematics"),
+     *                 @OA\Property(property="teacher", type="string", example="John Doe"),
+     *                 @OA\Property(property="start_time", type="string", format="date-time", example="2024-12-01 10:00:00"),
+     *                 @OA\Property(property="end_time", type="string", format="date-time", example="2024-12-01 11:00:00"),
+     *                 @OA\Property(property="price", type="number", format="float", example=50.00)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Slot is full or already booked",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="This slot is already full")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Slot not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Slot not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="The slot id field is required."),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="slot_id",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The slot id field is required.")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Server error - payment intent creation failed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Failed to create payment intent"),
+     *             @OA\Property(property="error", type="string", example="Stripe API error message")
+     *         )
+     *     )
+     * )
+     */
+    public function createBookingIntent(Request $request)
+    {
+        $validated = $request->validate([
+            'slot_id' => 'required|exists:available_slots,id',
+        ]);
+
+        try {
+            $slot = AvailableSlot::with('teacher', 'subject')
+                ->findOrFail($validated['slot_id']);
+
+            // Check availability (no lock needed yet, just checking)
+            if ($slot->booked_count >= $slot->max_students) {
+                return response()->json(['message' => 'This slot is already full'], 400);
+            }
+
+            // Check duplicate booking
+            if (LessonSession::where('slot_id', $slot->id)
+                    ->where('student_id', Auth::id())
+                    ->exists()) {
+                return response()->json(['message' => 'You already booked this slot'], 400);
+            }
+
+            // Check if price is zero (free session)
+            if ($slot->price <= 0) {
+                return response()->json([
+                    'success' => true,
+                    'requires_payment' => false,
+                    'message' => 'This is a free session',
+                ]);
+            }
+
+            // Create payment intent
+            $paymentIntent = $this->paymentService->createPaymentIntent(
+                $slot->price,
+                'usd', // or get from config/slot
+                [
+                    'slot_id' => $slot->id,
+                    'student_id' => Auth::id(),
+                    'teacher_id' => $slot->teacher_id,
+                    'subject' => $slot->subject->name ?? 'Session',
+                ]
+            );
+
+            if (!$paymentIntent['success']) {
+                return response()->json([
+                    'message' => 'Failed to create payment intent',
+                    'error' => $paymentIntent['error']
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'requires_payment' => true,
+                'client_secret' => $paymentIntent['client_secret'],
+                'payment_intent_id' => $paymentIntent['payment_intent_id'],
+                'amount' => $paymentIntent['amount'],
+                'slot' => [
+                    'id' => $slot->id,
+                    'subject' => $slot->subject->name ?? 'Session',
+                    'teacher' => $slot->teacher->name,
+                    'start_time' => $slot->start_time,
+                    'end_time' => $slot->end_time,
+                    'price' => $slot->price,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Create booking intent failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'Failed to create booking intent'
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/slot/bookings/confirm",
+     *     summary="Confirm booking after payment",
+     *     description="Confirms and finalizes the booking after successful payment. Creates lesson session, generates Google Meet link, and sends confirmation emails. For free sessions, payment_intent_id is not required.",
+     *     operationId="confirmBooking",
+     *     tags={"Available Slots"},
+     *     security={{"bearerAuth": {}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         description="Booking confirmation data",
+     *         @OA\JsonContent(
+     *             required={"slot_id"},
+     *             @OA\Property(
+     *                 property="slot_id",
+     *                 type="integer",
+     *                 description="ID of the slot to confirm booking",
+     *                 example=1
+     *             ),
+     *             @OA\Property(
+     *                 property="payment_intent_id",
+     *                 type="string",
+     *                 description="Stripe payment intent ID (required for paid sessions, optional for free sessions)",
+     *                 example="pi_3QXxxxxxxxxxxxx",
+     *                 nullable=true
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Booking confirmed successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Booking confirmed successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="session_id", type="integer", example=42),
+     *                 @OA\Property(property="meeting_link", type="string", example="https://meet.google.com/abc-defg-hij", nullable=true),
+     *                 @OA\Property(property="payment_status", type="string", example="paid", enum={"paid", "free"}),
+     *                 @OA\Property(property="amount_paid", type="number", format="float", example=50.00)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Bad request - validation or payment error",
+     *         @OA\JsonContent(
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="This slot is already full")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="You already booked this slot")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="Payment intent ID is required")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="Failed to verify payment")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="Payment not completed"),
+     *                     @OA\Property(property="payment_status", type="string", example="requires_payment_method")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Slot not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Slot not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="The slot id field is required."),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="slot_id",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The slot id field is required.")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Server error - booking confirmation failed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Booking confirmation failed. Please contact support.")
+     *         )
+     *     )
+     * )
+     */
+    public function confirmBooking(Request $request)
+    {
+        $validated = $request->validate([
+            'slot_id' => 'required|exists:available_slots,id',
+            'payment_intent_id' => 'nullable|string', // nullable for free sessions
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Lock the slot to prevent race conditions
+            $slot = AvailableSlot::where('id', $validated['slot_id'])
+                ->with('teacher', 'subject')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Re-check availability
+            if ($slot->booked_count >= $slot->max_students) {
+                DB::rollBack();
+                return response()->json(['message' => 'This slot is already full'], 400);
+            }
+
+            // Re-check duplicate booking
+            if (LessonSession::where('slot_id', $slot->id)
+                    ->where('student_id', Auth::id())
+                    ->exists()) {
+                DB::rollBack();
+                return response()->json(['message' => 'You already booked this slot'], 400);
+            }
+
+            // Verify payment if required
+            $paymentStatus = 'free';
+            $paymentIntentId = null;
+            $amountPaid = 0;
+
+            if ($slot->price > 0) {
+                if (!$validated['payment_intent_id']) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Payment intent ID is required'], 400);
+                }
+
+                // Verify payment with Stripe
+                $paymentResult = $this->paymentService->getPaymentIntent($validated['payment_intent_id']);
+
+                if (!$paymentResult['success']) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Failed to verify payment'], 400);
+                }
+
+                if ($paymentResult['status'] !== 'succeeded') {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Payment not completed',
+                        'payment_status' => $paymentResult['status']
+                    ], 400);
+                }
+
+                $paymentStatus = 'paid';
+                $paymentIntentId = $validated['payment_intent_id'];
+                $amountPaid = $paymentResult['amount'];
+            }
+
+            // Create lesson session
+            $session = LessonSession::create([
+                'slot_id' => $slot->id,
+                'teacher_id' => $slot->teacher_id,
+                'student_id' => Auth::id(),
+                'subject_id' => $slot->subject_id,
+                'scheduled_start_time' => $slot->start_time,
+                'scheduled_end_time' => $slot->end_time,
+                'session_type' => $slot->type,
+                'status' => 'scheduled',
+                'price' => $slot->price ?? 0,
+                'payment_status' => $paymentStatus,
+                'payment_intent_id' => $paymentIntentId,
+                'payment_method' => $paymentIntentId ? 'stripe' : null,
+                'amount_paid' => $amountPaid,
+                'currency' => 'usd',
+                'paid_at' => $paymentStatus === 'paid' ? now() : null,
+            ]);
+
+            // Create Google Meet
+            $meeting = $this->meetingService->createGoogleMeet(
+                $slot->teacher,
+                Carbon::parse($slot->start_time),
+                Carbon::parse($slot->end_time),
+                'Lesson: ' . ($slot->subject->name ?? 'Session')
+            );
+
+            if ($meeting) {
+                $session->update([
+                    'meeting_platform' => $meeting['platform'],
+                    'meeting_link' => $meeting['meeting_link'],
+                    'meeting_id' => $meeting['meeting_id'],
+                ]);
+            }
+
+            // Update slot
+            $slot->increment('booked_count');
+            if ($slot->booked_count >= $slot->max_students) {
+                $slot->update(['is_booked' => true]);
+            }
+
+            DB::commit();
+
+            // Send emails AFTER commit
+            Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
+            Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking confirmed successfully',
+                'data' => [
+                    'session_id' => $session->id,
+                    'meeting_link' => $meeting['meeting_link'] ?? null,
+                    'payment_status' => $paymentStatus,
+                    'amount_paid' => $amountPaid,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Booking confirmation failed: ' . $e->getMessage(), [
+                'slot_id' => $validated['slot_id'],
+                'payment_intent_id' => $validated['payment_intent_id'] ?? null,
+            ]);
+            
+            return response()->json([
+                'message' => 'Booking confirmation failed. Please contact support.'
+            ], 500);
         }
     }
 
@@ -381,41 +786,179 @@ class AvailableSlotController extends Controller
     /**
      * @OA\Put(
      *     path="/api/teacher/slots/{id}",
-     *     summary="Teacher updates a slot",
+     *     summary="Update an available slot",
+     *     description="Teacher updates their own slot. Cannot update if the slot has bookings. All fields are optional.",
+     *     operationId="updateSlot",
      *     tags={"Available Slots"},
+     *     security={{"bearerAuth": {}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
-     *         @OA\Schema(type="integer")
+     *         description="ID of the slot to update",
+     *         @OA\Schema(
+     *             type="integer",
+     *             example=1
+     *         )
      *     ),
      *     @OA\RequestBody(
      *         required=false,
+     *         description="Fields to update (all optional)",
      *         @OA\JsonContent(
-     *             @OA\Property(property="title", type="string"),
-     *             @OA\Property(property="subject_id", type="integer"),
-     *             @OA\Property(property="from_date", type="string", format="date"),
-     *             @OA\Property(property="to_date", type="string", format="date
-     *             @OA\Property(property="start_time", type="string"),
-     *             @OA\Property(property="end_time", type="string"),
-     *             @OA\Property(property="type", type="string", enum={"one_to_one","group"}),
-     *             @OA\Property(property="price", type="number"),
-     *             @OA\Property(property="max_students", type="integer"),
-     *             @OA\Property(property="description", type="string")
+     *             @OA\Property(
+     *                 property="title",
+     *                 type="string",
+     *                 description="Slot title",
+     *                 example="Advanced Mathematics Session"
+     *             ),
+     *             @OA\Property(
+     *                 property="subject_id",
+     *                 type="integer",
+     *                 description="Subject ID",
+     *                 example=1
+     *             ),
+     *             @OA\Property(
+     *                 property="from_date",
+     *                 type="string",
+     *                 format="date",
+     *                 description="Start date (YYYY-MM-DD)",
+     *                 example="2024-12-01"
+     *             ),
+     *             @OA\Property(
+     *                 property="to_date",
+     *                 type="string",
+     *                 format="date",
+     *                 description="End date (YYYY-MM-DD), must be after or equal to from_date",
+     *                 example="2024-12-31"
+     *             ),
+     *             @OA\Property(
+     *                 property="start_time",
+     *                 type="string",
+     *                 format="time",
+     *                 description="Start time in HH:MM format (24-hour)",
+     *                 example="14:00"
+     *             ),
+     *             @OA\Property(
+     *                 property="end_time",
+     *                 type="string",
+     *                 format="time",
+     *                 description="End time in HH:MM format (24-hour), must be after start_time",
+     *                 example="15:30"
+     *             ),
+     *             @OA\Property(
+     *                 property="type",
+     *                 type="string",
+     *                 enum={"one_to_one", "group"},
+     *                 description="Session type",
+     *                 example="one_to_one"
+     *             ),
+     *             @OA\Property(
+     *                 property="price",
+     *                 type="number",
+     *                 format="float",
+     *                 description="Price per session (nullable, minimum 0)",
+     *                 example=50.00,
+     *                 nullable=true
+     *             ),
+     *             @OA\Property(
+     *                 property="max_students",
+     *                 type="integer",
+     *                 description="Maximum number of students (minimum 1)",
+     *                 example=5
+     *             ),
+     *             @OA\Property(
+     *                 property="description",
+     *                 type="string",
+     *                 description="Slot description",
+     *                 example="This session covers advanced calculus topics including derivatives and integrals.",
+     *                 nullable=true
+     *             )
      *         )
      *     ),
      *     @OA\Response(
      *         response=200,
      *         description="Slot updated successfully",
      *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean"),
-     *             @OA\Property(property="message", type="string"),
-     *             @OA\Property(property="data", type="object")
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Slot updated successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="teacher_id", type="integer", example=10),
+     *                 @OA\Property(property="title", type="string", example="Advanced Mathematics Session"),
+     *                 @OA\Property(property="subject_id", type="integer", example=1),
+     *                 @OA\Property(property="from_date", type="string", format="date", example="2024-12-01"),
+     *                 @OA\Property(property="to_date", type="string", format="date", example="2024-12-31"),
+     *                 @OA\Property(property="start_time", type="string", example="14:00:00"),
+     *                 @OA\Property(property="end_time", type="string", example="15:30:00"),
+     *                 @OA\Property(property="type", type="string", example="one_to_one"),
+     *                 @OA\Property(property="price", type="number", format="float", example=50.00),
+     *                 @OA\Property(property="max_students", type="integer", example=5),
+     *                 @OA\Property(property="booked_count", type="integer", example=0),
+     *                 @OA\Property(property="is_booked", type="boolean", example=false),
+     *                 @OA\Property(property="description", type="string", example="Advanced calculus session"),
+     *                 @OA\Property(property="created_at", type="string", format="date-time", example="2024-11-16T10:30:00.000000Z"),
+     *                 @OA\Property(property="updated_at", type="string", format="date-time", example="2024-11-16T12:45:00.000000Z")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Cannot update - slot has bookings",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Cannot update a booked slot")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden - not the slot owner",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthorized")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Slot not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Slot not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="The end time must be a time after start time."),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="end_time",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The end time must be a time after start time.")
+     *                 ),
+     *                 @OA\Property(
+     *                     property="to_date",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The to date must be a date after or equal to from date.")
+     *                 ),
+     *                 @OA\Property(
+     *                     property="subject_id",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The selected subject id is invalid.")
+     *                 )
+     *             )
      *         )
      *     )
      * )
      */
-
     public function update(Request $request, AvailableSlot $availableSlot)
     {
         if ($availableSlot->teacher_id !== Auth::id()) {
@@ -447,7 +990,6 @@ class AvailableSlotController extends Controller
             'data' => $availableSlot
         ]);
     }
-
 
     /**
      * @OA\Delete(

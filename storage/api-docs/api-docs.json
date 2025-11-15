@@ -217,12 +217,7 @@
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/slots/{id}": {
@@ -304,28 +299,29 @@
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
+                }
             }
         },
-        "/api/slots/book": {
+        "/api/slot/bookings/intent": {
             "post": {
                 "tags": [
                     "Available Slots"
                 ],
-                "summary": "Student books a slot",
-                "operationId": "ce5fd3b7f8d4afaf35edd01280accc4c",
+                "summary": "Create booking payment intent",
+                "description": "Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
+                "operationId": "createBookingIntent",
                 "requestBody": {
+                    "description": "Slot ID to book",
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
+                                "required": [
+                                    "slot_id"
+                                ],
                                 "properties": {
                                     "slot_id": {
+                                        "description": "ID of the available slot to book",
                                         "type": "integer",
                                         "example": 1
                                     }
@@ -337,26 +333,386 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Booking successful",
+                        "description": "Booking intent created successfully",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "success": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "example": true
                                         },
-                                        "message": {
+                                        "requires_payment": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "client_secret": {
                                             "type": "string",
-                                            "example": "Slot booked successfully"
+                                            "example": "pi_xxxxx_secret_xxxxx"
                                         },
-                                        "data": {
+                                        "payment_intent_id": {
+                                            "type": "string",
+                                            "example": "pi_xxxxx"
+                                        },
+                                        "amount": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 50
+                                        },
+                                        "slot": {
                                             "properties": {
-                                                "meeting_link": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "subject": {
                                                     "type": "string",
-                                                    "example": "https://meet.google.com/abc-defg-hij"
+                                                    "example": "Mathematics"
+                                                },
+                                                "teacher": {
+                                                    "type": "string",
+                                                    "example": "John Doe"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-12-01 10:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-12-01 11:00:00"
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 50
                                                 }
                                             },
                                             "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Slot is full or already booked",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "This slot is already full"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slot not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The slot id field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "slot_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The slot id field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - payment intent creation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to create payment intent"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Stripe API error message"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/slot/bookings/confirm": {
+            "post": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Confirm booking after payment",
+                "description": "Confirms and finalizes the booking after successful payment. Creates lesson session, generates Google Meet link, and sends confirmation emails. For free sessions, payment_intent_id is not required.",
+                "operationId": "confirmBooking",
+                "requestBody": {
+                    "description": "Booking confirmation data",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "slot_id"
+                                ],
+                                "properties": {
+                                    "slot_id": {
+                                        "description": "ID of the slot to confirm booking",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "payment_intent_id": {
+                                        "description": "Stripe payment intent ID (required for paid sessions, optional for free sessions)",
+                                        "type": "string",
+                                        "example": "pi_3QXxxxxxxxxxxxx",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Booking confirmed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Booking confirmed successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "session_id": {
+                                                    "type": "integer",
+                                                    "example": 42
+                                                },
+                                                "meeting_link": {
+                                                    "type": "string",
+                                                    "example": "https://meet.google.com/abc-defg-hij",
+                                                    "nullable": true
+                                                },
+                                                "payment_status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "paid",
+                                                        "free"
+                                                    ],
+                                                    "example": "paid"
+                                                },
+                                                "amount_paid": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 50
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation or payment error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "This slot is already full"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "You already booked this slot"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Payment intent ID is required"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Failed to verify payment"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Payment not completed"
+                                                },
+                                                "payment_status": {
+                                                    "type": "string",
+                                                    "example": "requires_payment_method"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slot not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The slot id field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "slot_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The slot id field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - booking confirmation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Booking confirmation failed. Please contact support."
                                         }
                                     },
                                     "type": "object"
@@ -402,10 +758,17 @@
                         "application/json": {
                             "schema": {
                                 "properties": {
+                                    "title": {
+                                        "type": "string"
+                                    },
                                     "subject_id": {
                                         "type": "integer"
                                     },
-                                    "available_date": {
+                                    "from_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "to_date": {
                                         "type": "string",
                                         "format": "date"
                                     },
@@ -467,13 +830,20 @@
                                                     "id": {
                                                         "type": "integer"
                                                     },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
                                                     "teacher_id": {
                                                         "type": "integer"
                                                     },
                                                     "subject_id": {
                                                         "type": "integer"
                                                     },
-                                                    "available_date": {
+                                                    "from_date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "to_date": {
                                                         "type": "string",
                                                         "format": "date"
                                                     },
@@ -518,52 +888,88 @@
                 "tags": [
                     "Available Slots"
                 ],
-                "summary": "Teacher updates a slot",
-                "operationId": "bde2393442ade35a9261b0b728da82ce",
+                "summary": "Update an available slot",
+                "description": "Teacher updates their own slot. Cannot update if the slot has bookings. All fields are optional.",
+                "operationId": "updateSlot",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
+                        "description": "ID of the slot to update",
                         "required": true,
                         "schema": {
-                            "type": "integer"
+                            "type": "integer",
+                            "example": 1
                         }
                     }
                 ],
                 "requestBody": {
+                    "description": "Fields to update (all optional)",
                     "required": false,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "properties": {
-                                    "subject_id": {
-                                        "type": "integer"
-                                    },
-                                    "available_date": {
+                                    "title": {
+                                        "description": "Slot title",
                                         "type": "string",
-                                        "format": "date"
+                                        "example": "Advanced Mathematics Session"
+                                    },
+                                    "subject_id": {
+                                        "description": "Subject ID",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "from_date": {
+                                        "description": "Start date (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-01"
+                                    },
+                                    "to_date": {
+                                        "description": "End date (YYYY-MM-DD), must be after or equal to from_date",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
                                     },
                                     "start_time": {
-                                        "type": "string"
+                                        "description": "Start time in HH:MM format (24-hour)",
+                                        "type": "string",
+                                        "format": "time",
+                                        "example": "14:00"
                                     },
                                     "end_time": {
-                                        "type": "string"
+                                        "description": "End time in HH:MM format (24-hour), must be after start_time",
+                                        "type": "string",
+                                        "format": "time",
+                                        "example": "15:30"
                                     },
                                     "type": {
+                                        "description": "Session type",
                                         "type": "string",
                                         "enum": [
                                             "one_to_one",
                                             "group"
-                                        ]
+                                        ],
+                                        "example": "one_to_one"
                                     },
                                     "price": {
-                                        "type": "number"
+                                        "description": "Price per session (nullable, minimum 0)",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 50,
+                                        "nullable": true
                                     },
                                     "max_students": {
-                                        "type": "integer"
+                                        "description": "Maximum number of students (minimum 1)",
+                                        "type": "integer",
+                                        "example": 5
                                     },
                                     "description": {
-                                        "type": "string"
+                                        "description": "Slot description",
+                                        "type": "string",
+                                        "example": "This session covers advanced calculus topics including derivatives and integrals.",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -579,12 +985,191 @@
                                 "schema": {
                                     "properties": {
                                         "success": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "example": true
                                         },
                                         "message": {
-                                            "type": "string"
+                                            "type": "string",
+                                            "example": "Slot updated successfully"
                                         },
                                         "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "teacher_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "example": "Advanced Mathematics Session"
+                                                },
+                                                "subject_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "from_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2024-12-01"
+                                                },
+                                                "to_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2024-12-31"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "14:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "15:30:00"
+                                                },
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "one_to_one"
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 50
+                                                },
+                                                "max_students": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "booked_count": {
+                                                    "type": "integer",
+                                                    "example": 0
+                                                },
+                                                "is_booked": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "Advanced calculus session"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-11-16T10:30:00.000000Z"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-11-16T12:45:00.000000Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Cannot update - slot has bookings",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot update a booked slot"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - not the slot owner",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthorized"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slot not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The end time must be a time after start time."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "end_time": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The end time must be a time after start time."
+                                                    }
+                                                },
+                                                "to_date": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The to date must be a date after or equal to from date."
+                                                    }
+                                                },
+                                                "subject_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The selected subject id is invalid."
+                                                    }
+                                                }
+                                            },
                                             "type": "object"
                                         }
                                     },
@@ -641,6 +1226,330 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "teacher/slots/booked": {
+            "get": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Teacher views their own booked slots",
+                "operationId": "3bb2fe456fb82f712ddc780b8f76ff4f",
+                "responses": {
+                    "200": {
+                        "description": "Teacher's slots"
+                    }
+                }
+            }
+        },
+        "/api/public-courses": {
+            "get": {
+                "tags": [
+                    "Courses"
+                ],
+                "summary": "Get all published courses",
+                "description": "Retrieve all published courses available for public access. Includes course details, teacher information, modules, and video lessons.",
+                "operationId": "getAllPublicCourses",
+                "responses": {
+                    "200": {
+                        "description": "List of published courses retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "title": {
+                                                        "type": "string",
+                                                        "example": "Complete Web Development Bootcamp"
+                                                    },
+                                                    "description": {
+                                                        "type": "string",
+                                                        "example": "Learn web development from scratch with HTML, CSS, JavaScript, and more"
+                                                    },
+                                                    "subject_id": {
+                                                        "type": "integer",
+                                                        "example": 5
+                                                    },
+                                                    "teacher_id": {
+                                                        "type": "integer",
+                                                        "example": 10
+                                                    },
+                                                    "price": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 99.99
+                                                    },
+                                                    "duration_weeks": {
+                                                        "type": "integer",
+                                                        "example": 12,
+                                                        "nullable": true
+                                                    },
+                                                    "difficulty_level": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "beginner",
+                                                            "intermediate",
+                                                            "advanced"
+                                                        ],
+                                                        "example": "beginner"
+                                                    },
+                                                    "thumbnail_url": {
+                                                        "type": "string",
+                                                        "example": "https://example.com/thumbnails/course1.jpg",
+                                                        "nullable": true
+                                                    },
+                                                    "is_published": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    },
+                                                    "enrollment_count": {
+                                                        "type": "integer",
+                                                        "example": 150
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2024-11-01T10:30:00.000000Z"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2024-11-16T12:45:00.000000Z"
+                                                    },
+                                                    "subject": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 5
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Web Development"
+                                                            },
+                                                            "description": {
+                                                                "type": "string",
+                                                                "example": "Learn modern web development technologies",
+                                                                "nullable": true
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2024-01-01T00:00:00.000000Z"
+                                                            },
+                                                            "updated_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2024-01-01T00:00:00.000000Z"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "teacher": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "John Doe"
+                                                            },
+                                                            "email": {
+                                                                "type": "string",
+                                                                "example": "john@example.com"
+                                                            },
+                                                            "role": {
+                                                                "type": "string",
+                                                                "example": "teacher"
+                                                            },
+                                                            "profile_picture": {
+                                                                "type": "string",
+                                                                "example": "https://example.com/profiles/john.jpg",
+                                                                "nullable": true
+                                                            },
+                                                            "bio": {
+                                                                "type": "string",
+                                                                "example": "Experienced web developer with 10+ years",
+                                                                "nullable": true
+                                                            },
+                                                            "created_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2023-01-15T08:30:00.000000Z"
+                                                            },
+                                                            "updated_at": {
+                                                                "type": "string",
+                                                                "format": "date-time",
+                                                                "example": "2024-11-10T14:20:00.000000Z"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "modules": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "properties": {
+                                                                "id": {
+                                                                    "type": "integer",
+                                                                    "example": 1
+                                                                },
+                                                                "course_id": {
+                                                                    "type": "integer",
+                                                                    "example": 1
+                                                                },
+                                                                "title": {
+                                                                    "type": "string",
+                                                                    "example": "Introduction to HTML"
+                                                                },
+                                                                "description": {
+                                                                    "type": "string",
+                                                                    "example": "Learn the basics of HTML structure and tags",
+                                                                    "nullable": true
+                                                                },
+                                                                "order": {
+                                                                    "type": "integer",
+                                                                    "example": 1
+                                                                },
+                                                                "duration_minutes": {
+                                                                    "type": "integer",
+                                                                    "example": 120,
+                                                                    "nullable": true
+                                                                },
+                                                                "created_at": {
+                                                                    "type": "string",
+                                                                    "format": "date-time",
+                                                                    "example": "2024-11-01T11:00:00.000000Z"
+                                                                },
+                                                                "updated_at": {
+                                                                    "type": "string",
+                                                                    "format": "date-time",
+                                                                    "example": "2024-11-01T11:00:00.000000Z"
+                                                                },
+                                                                "video_lessons": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "properties": {
+                                                                            "id": {
+                                                                                "type": "integer",
+                                                                                "example": 1
+                                                                            },
+                                                                            "module_id": {
+                                                                                "type": "integer",
+                                                                                "example": 1
+                                                                            },
+                                                                            "title": {
+                                                                                "type": "string",
+                                                                                "example": "HTML Basics - Part 1"
+                                                                            },
+                                                                            "description": {
+                                                                                "type": "string",
+                                                                                "example": "Introduction to HTML tags and structure",
+                                                                                "nullable": true
+                                                                            },
+                                                                            "video_url": {
+                                                                                "type": "string",
+                                                                                "example": "https://example.com/videos/lesson1.mp4"
+                                                                            },
+                                                                            "duration_seconds": {
+                                                                                "type": "integer",
+                                                                                "example": 1800
+                                                                            },
+                                                                            "order": {
+                                                                                "type": "integer",
+                                                                                "example": 1
+                                                                            },
+                                                                            "is_preview": {
+                                                                                "type": "boolean",
+                                                                                "example": true
+                                                                            },
+                                                                            "created_at": {
+                                                                                "type": "string",
+                                                                                "format": "date-time",
+                                                                                "example": "2024-11-01T11:30:00.000000Z"
+                                                                            },
+                                                                            "updated_at": {
+                                                                                "type": "string",
+                                                                                "format": "date-time",
+                                                                                "example": "2024-11-01T11:30:00.000000Z"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    }
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to retrieve courses"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/public-courses/{id}": {
+            "get": {
+                "tags": [
+                    "Courses"
+                ],
+                "summary": "Get a specific course by ID",
+                "operationId": "ef3fce35a0497bb84b2ac9cdbd775343",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Course ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Course retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Course not found"
+                    }
+                }
             }
         },
         "/api/courses": {

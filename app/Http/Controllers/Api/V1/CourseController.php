@@ -25,11 +25,100 @@ class CourseController extends Controller
     /**
      * @OA\Get(
      *     path="/api/public-courses",
+     *     summary="Get all published courses",
+     *     description="Retrieve all published courses available for public access. Includes course details, teacher information, modules, and video lessons.",
+     *     operationId="getAllPublicCourses",
      *     tags={"Courses"},
-     *     summary="Get all published courses for public access",
-     *    @OA\Response(response=200, description="List of published courses retrieved successfully")
+     *     @OA\Response(
+     *         response=200,
+     *         description="List of published courses retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="title", type="string", example="Complete Web Development Bootcamp"),
+     *                     @OA\Property(property="description", type="string", example="Learn web development from scratch with HTML, CSS, JavaScript, and more"),
+     *                     @OA\Property(property="subject_id", type="integer", example=5),
+     *                     @OA\Property(property="teacher_id", type="integer", example=10),
+     *                     @OA\Property(property="price", type="number", format="float", example=99.99),
+     *                     @OA\Property(property="duration_weeks", type="integer", example=12, nullable=true),
+     *                     @OA\Property(property="difficulty_level", type="string", example="beginner", enum={"beginner", "intermediate", "advanced"}),
+     *                     @OA\Property(property="thumbnail_url", type="string", example="https://example.com/thumbnails/course1.jpg", nullable=true),
+     *                     @OA\Property(property="is_published", type="boolean", example=true),
+     *                     @OA\Property(property="enrollment_count", type="integer", example=150),
+     *                     @OA\Property(property="created_at", type="string", format="date-time", example="2024-11-01T10:30:00.000000Z"),
+     *                     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-11-16T12:45:00.000000Z"),
+     *                     @OA\Property(
+     *                         property="subject",
+     *                         type="object",
+     *                         @OA\Property(property="id", type="integer", example=5),
+     *                         @OA\Property(property="name", type="string", example="Web Development"),
+     *                         @OA\Property(property="description", type="string", example="Learn modern web development technologies", nullable=true),
+     *                         @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-01T00:00:00.000000Z"),
+     *                         @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-01T00:00:00.000000Z")
+     *                     ),
+     *                     @OA\Property(
+     *                         property="teacher",
+     *                         type="object",
+     *                         @OA\Property(property="id", type="integer", example=10),
+     *                         @OA\Property(property="name", type="string", example="John Doe"),
+     *                         @OA\Property(property="email", type="string", example="john@example.com"),
+     *                         @OA\Property(property="role", type="string", example="teacher"),
+     *                         @OA\Property(property="profile_picture", type="string", example="https://example.com/profiles/john.jpg", nullable=true),
+     *                         @OA\Property(property="bio", type="string", example="Experienced web developer with 10+ years", nullable=true),
+     *                         @OA\Property(property="created_at", type="string", format="date-time", example="2023-01-15T08:30:00.000000Z"),
+     *                         @OA\Property(property="updated_at", type="string", format="date-time", example="2024-11-10T14:20:00.000000Z")
+     *                     ),
+     *                     @OA\Property(
+     *                         property="modules",
+     *                         type="array",
+     *                         @OA\Items(
+     *                             type="object",
+     *                             @OA\Property(property="id", type="integer", example=1),
+     *                             @OA\Property(property="course_id", type="integer", example=1),
+     *                             @OA\Property(property="title", type="string", example="Introduction to HTML"),
+     *                             @OA\Property(property="description", type="string", example="Learn the basics of HTML structure and tags", nullable=true),
+     *                             @OA\Property(property="order", type="integer", example=1),
+     *                             @OA\Property(property="duration_minutes", type="integer", example=120, nullable=true),
+     *                             @OA\Property(property="created_at", type="string", format="date-time", example="2024-11-01T11:00:00.000000Z"),
+     *                             @OA\Property(property="updated_at", type="string", format="date-time", example="2024-11-01T11:00:00.000000Z"),
+     *                             @OA\Property(
+     *                                 property="video_lessons",
+     *                                 type="array",
+     *                                 @OA\Items(
+     *                                     type="object",
+     *                                     @OA\Property(property="id", type="integer", example=1),
+     *                                     @OA\Property(property="module_id", type="integer", example=1),
+     *                                     @OA\Property(property="title", type="string", example="HTML Basics - Part 1"),
+     *                                     @OA\Property(property="description", type="string", example="Introduction to HTML tags and structure", nullable=true),
+     *                                     @OA\Property(property="video_url", type="string", example="https://example.com/videos/lesson1.mp4"),
+     *                                     @OA\Property(property="duration_seconds", type="integer", example=1800),
+     *                                     @OA\Property(property="order", type="integer", example=1),
+     *                                     @OA\Property(property="is_preview", type="boolean", example=true),
+     *                                     @OA\Property(property="created_at", type="string", format="date-time", example="2024-11-01T11:30:00.000000Z"),
+     *                                     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-11-01T11:30:00.000000Z")
+     *                                 )
+     *                             )
+     *                         )
+     *                     )
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Failed to retrieve courses")
+     *         )
+     *     )
+     * )
      */
-
     public function allCourses()
     {
         $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons'])

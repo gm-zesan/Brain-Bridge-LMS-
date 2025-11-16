@@ -7,7 +7,9 @@ use App\Models\Teacher;
 use App\Models\User;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Exception;
 
 
 
@@ -62,46 +64,101 @@ class TeacherController extends Controller
      *     @OA\Response(response=422, description="Validation error")
      * )
      */
+
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
-            'password' => 'required|string|min:6',
-            'title' => 'nullable|string|max:255',
-        ]);
+        try {
+            // Validate input
+            $data = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255',
+                'password' => 'required|string|min:6',
+                'title' => 'nullable|string|max:255',
+            ]);
+            DB::beginTransaction();
 
-        $user = User::where('email', $data['email'])->first();
-        if (!$user) {
-            $firebaseUser = $this->auth->createUser([
-                'email' => $request->email,
-                'password' => $request->password,
-                'displayName' => $request->name,
+            // Check if user already exists
+            $user = User::where('email', $data['email'])->first();
+            $isNewUser = false;
+            $firebaseUid = null;
+
+            if (!$user) {
+                $isNewUser = true;
+
+                $firebaseUser = $this->auth->createUser([
+                    'email' => $data['email'],
+                    'password' => $data['password'],
+                    'displayName' => $data['name'],
+                ]);
+
+                $firebaseUid = $firebaseUser->uid;
+                
+                // Create local user
+                $user = User::create([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'firebase_uid' => $firebaseUid,
+                    'password' => bcrypt($data['password'])
+                ]);
+            } 
+
+            $existingTeacher = Teacher::where('user_id', $user->id)->first();
+            
+            if ($existingTeacher) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This user is already registered as a teacher.',
+                    'data' => [
+                        'teacher' => $existingTeacher->load('user')
+                    ]
+                ], 409);
+            }
+
+            if (!$user->hasRole('teacher')) {
+                $user->assignRole('teacher');
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            $teacher = Teacher::create([
+                'user_id' => $user->id,
+                'title' => $data['title'] ?? null,
+                'teacher_level_id' => 1,
             ]);
 
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'firebase_uid' => $firebaseUser->uid,
-                'password' => bcrypt($request->password)
-            ]);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => $isNewUser 
+                    ? 'Teacher created successfully.' 
+                    : 'Existing user converted to teacher successfully.',
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'data' => [
+                    'teacher' => $teacher->load('user'),
+                    'is_new_user' => $isNewUser,
+                    'has_firebase_uid' => !is_null($user->firebase_uid)
+                ]
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Registration failed. Please try again or contact support.',
+            ], 500);
         }
-        
-        $user->assignRole('teacher');
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        $teacher = Teacher::create([
-            'user_id' => $user->id,
-            'title' => $data['title'],
-            'teacher_level_id' => 1, // Default level
-        ]);
-
-        return response()->json([
-            'message' => 'Teacher created successfully.',
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'data' => $teacher->load('user'),
-        ], 201);
     }
 
 

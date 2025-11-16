@@ -17,62 +17,19 @@ class FirebaseService
     protected Auth $auth;
     protected Storage $storage;
 
-    // public function __construct()
-    // {
-    //     $factory = (new Factory)
-    //         ->withServiceAccount(storage_path('app/firebase/brainbridge-storage-firebase-adminsdk.json'));
-    //     $this->auth = $factory->createAuth();
-    //     $this->storage = $factory->createStorage();
-    // }
     public function __construct()
     {
-        try {
-            // Get the path to service account file
-            $serviceAccountPath = storage_path('app/firebase/brainbridge-storage-firebase-adminsdk.json');
-            
-            // Check if file exists
-            if (!file_exists($serviceAccountPath)) {
-                throw new Exception("Firebase service account file not found at: {$serviceAccountPath}");
-            }
-
-            // Check if file is readable
-            if (!is_readable($serviceAccountPath)) {
-                throw new Exception("Firebase service account file is not readable. Check file permissions.");
-            }
-
-            // Validate JSON content
-            $jsonContent = file_get_contents($serviceAccountPath);
-            $jsonData = json_decode($jsonContent, true);
-            
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new Exception("Invalid JSON in Firebase service account file: " . json_last_error_msg());
-            }
-
-            // Check required fields
-            $requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email'];
-            foreach ($requiredFields as $field) {
-                if (!isset($jsonData[$field])) {
-                    throw new Exception("Missing required field '{$field}' in Firebase service account file");
-                }
-            }
-
-            // Initialize Firebase
-            $factory = (new Factory)
-                ->withServiceAccount($serviceAccountPath);
-
-            $this->auth = $factory->createAuth();
-            $this->storage = $factory->createStorage();
-
-            Log::info('Firebase service initialized successfully');
-
-        } catch (Exception $e) {
-            Log::error('Firebase initialization failed: ' . $e->getMessage(), [
-                'file' => $serviceAccountPath ?? 'unknown',
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            throw new Exception('Firebase service initialization failed: ' . $e->getMessage());
+        $serviceAccountPath = storage_path('app/firebase/brainbridge-storage-firebase-adminsdk.json');
+        
+        if (!file_exists($serviceAccountPath)) {
+            throw new Exception("Firebase service account file not found at: {$serviceAccountPath}");
         }
+
+        $factory = (new Factory)
+            ->withServiceAccount($serviceAccountPath);
+
+        $this->auth = $factory->createAuth();
+        $this->storage = $factory->createStorage();
     }
 
     public function getAuth(): Auth

@@ -64,6 +64,47 @@ class TeacherController extends Controller
      *     @OA\Response(response=422, description="Validation error")
      * )
      */
+    // public function store(Request $request)
+    // {
+    //     $data = $request->validate([
+    //         'name' => 'required|string|max:255',
+    //         'email' => 'required|string|email|max:255',
+    //         'password' => 'required|string|min:6',
+    //         'title' => 'nullable|string|max:255',
+    //     ]);
+
+    //     $user = User::where('email', $data['email'])->first();
+    //     if (!$user) {
+    //         $firebaseUser = $this->auth->createUser([
+    //             'email' => $request->email,
+    //             'password' => $request->password,
+    //             'displayName' => $request->name,
+    //         ]);
+
+    //         $user = User::create([
+    //             'name' => $data['name'],
+    //             'email' => $data['email'],
+    //             'firebase_uid' => $firebaseUser->uid,
+    //             'password' => bcrypt($request->password)
+    //         ]);
+    //     }
+        
+    //     $user->assignRole('teacher');
+    //     $token = $user->createToken('auth_token')->plainTextToken;
+
+    //     $teacher = Teacher::create([
+    //         'user_id' => $user->id,
+    //         'title' => $data['title'],
+    //         'teacher_level_id' => 1, // Default level
+    //     ]);
+
+    //     return response()->json([
+    //         'message' => 'Teacher created successfully.',
+    //         'access_token' => $token,
+    //         'token_type' => 'Bearer',
+    //         'data' => $teacher->load('user'),
+    //     ], 201);
+    // }
 
     public function store(Request $request)
     {
@@ -137,11 +178,7 @@ class TeacherController extends Controller
                     : 'Existing user converted to teacher successfully.',
                 'access_token' => $token,
                 'token_type' => 'Bearer',
-                'data' => [
-                    'teacher' => $teacher->load('user'),
-                    'is_new_user' => $isNewUser,
-                    'has_firebase_uid' => !is_null($user->firebase_uid)
-                ]
+                'data' => $teacher->load('user'),
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

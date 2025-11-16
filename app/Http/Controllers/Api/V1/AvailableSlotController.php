@@ -291,7 +291,6 @@ class AvailableSlotController extends Controller
      *     description="Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
      *     operationId="createBookingIntent",
      *     tags={"Available Slots"},
-     *     security={{"bearerAuth": {}}},
      *     @OA\RequestBody(
      *         required=true,
      *         description="Slot ID to book",
@@ -455,17 +454,21 @@ class AvailableSlotController extends Controller
      *     description="Confirms and finalizes the booking after successful payment. Creates lesson session, generates Google Meet link, and sends confirmation emails. For free sessions, payment_intent_id is not required.",
      *     operationId="confirmBooking",
      *     tags={"Available Slots"},
-     *     security={{"bearerAuth": {}}},
      *     @OA\RequestBody(
      *         required=true,
      *         description="Booking confirmation data",
      *         @OA\JsonContent(
-     *             required={"slot_id"},
+     *             required={"slot_id", "scheduled_date"},
      *             @OA\Property(
      *                 property="slot_id",
      *                 type="integer",
      *                 description="ID of the slot to confirm booking",
      *                 example=1
+     *             ),
+     *             @OA\Property(
+     *                 property="scheduled_date",
+     *                 type="date",
+     *                 description="Available Date selection by User"
      *             ),
      *             @OA\Property(
      *                 property="payment_intent_id",
@@ -555,10 +558,12 @@ class AvailableSlotController extends Controller
      *     )
      * )
      */
+    
     public function confirmBooking(Request $request)
     {
         $validated = $request->validate([
             'slot_id' => 'required|exists:available_slots,id',
+            'scheduled_date' => 'required',
             'payment_intent_id' => 'nullable|string', // nullable for free sessions
         ]);
 
@@ -622,6 +627,7 @@ class AvailableSlotController extends Controller
                 'teacher_id' => $slot->teacher_id,
                 'student_id' => Auth::id(),
                 'subject_id' => $slot->subject_id,
+                'scheduled_date' => $request->scheduled_date,
                 'scheduled_start_time' => $slot->start_time,
                 'scheduled_end_time' => $slot->end_time,
                 'session_type' => $slot->type,

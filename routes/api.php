@@ -63,6 +63,9 @@ Route::middleware('auth:sanctum')->group(function () {
     
     
     Route::apiResource('courses', CourseController::class);
+    // Course purchase routes
+    Route::post('/courses/payment-intent', [CourseController::class, 'createCoursePaymentIntent']);
+    Route::post('/courses/confirm-purchase', [CourseController::class, 'confirmCoursePurchase']);
     Route::apiResource('modules', ModuleController::class);
     Route::apiResource('video-lessons', VideoLessonController::class);
 

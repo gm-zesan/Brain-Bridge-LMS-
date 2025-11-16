@@ -21,6 +21,7 @@ return new class extends Migration
             $table->decimal('old_price', 8, 2)->nullable();
             $table->decimal('price', 8, 2)->default(0.00);
             $table->boolean('is_published')->default(false);
+            $table->integer('enrollment_count')->default(0);
             $table->timestamps();
         });
     }

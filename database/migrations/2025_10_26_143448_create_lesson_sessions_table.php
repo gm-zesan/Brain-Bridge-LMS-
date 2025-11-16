@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('subject_id')->constrained('subjects')->onDelete('cascade');
 
+            $table->date('scheduled_date');
             $table->dateTime('scheduled_start_time');
             $table->dateTime('scheduled_end_time');
 

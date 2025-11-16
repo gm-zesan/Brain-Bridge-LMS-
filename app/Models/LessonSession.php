@@ -11,6 +11,7 @@ class LessonSession extends Model
         'student_id',
         'teacher_id',
         'subject_id',
+        'scheduled_date',
         'scheduled_start_time',
         'scheduled_end_time',
         'session_type',

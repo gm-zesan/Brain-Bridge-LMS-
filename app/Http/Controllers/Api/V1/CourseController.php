@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Mail\CourseEnrolledMail;
 use App\Models\Course;
+use App\Models\CourseEnrollment;
 use App\Models\Module;
 use App\Models\VideoLesson;
 use App\Services\FirebaseService;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -21,6 +25,12 @@ use Illuminate\Support\Facades\Storage;
  */
 class CourseController extends Controller
 {
+    protected $paymentService;
+
+    public function __construct(PaymentService $paymentService)
+    {
+        $this->paymentService = $paymentService;
+    }
 
     /**
      * @OA\Get(
@@ -169,6 +179,339 @@ class CourseController extends Controller
         });
 
         return response()->json($course, 200);
+    }
+
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/courses/payment-intent",
+     *     tags={"Course Payment"},
+     *     summary="Create payment intent for course purchase",
+     *     description="Creates a Stripe payment intent for purchasing a course. Returns payment details or indicates if the course is free.",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"course_id"},
+     *             @OA\Property(property="course_id", type="integer", example=1, description="ID of the course to purchase")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Payment intent created successfully or free course",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="requires_payment", type="boolean", example=true),
+     *             @OA\Property(property="client_secret", type="string", example="pi_xxxxx_secret_xxxxx"),
+     *             @OA\Property(property="payment_intent_id", type="string", example="pi_xxxxx"),
+     *             @OA\Property(property="amount", type="number", format="float", example=99.99),
+     *             @OA\Property(
+     *                 property="course",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="title", type="string", example="Complete Web Development Course"),
+     *                 @OA\Property(property="subject", type="string", example="Programming"),
+     *                 @OA\Property(property="teacher", type="string", example="John Doe"),
+     *                 @OA\Property(property="price", type="number", format="float", example=99.99),
+     *                 @OA\Property(property="old_price", type="number", format="float", example=149.99, nullable=true)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Bad request - Course not available or already purchased",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="You already own this course")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Course not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Course not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Failed to create payment intent"),
+     *             @OA\Property(property="error", type="string", example="Error details")
+     *         )
+     *     )
+     * )
+     */
+
+    public function createCoursePaymentIntent(Request $request)
+    {
+        $validated = $request->validate([
+            'course_id' => 'required|exists:courses,id',
+        ]);
+
+        try {
+            $course = Course::with('subject', 'teacher')
+                ->findOrFail($validated['course_id']);
+
+            // Check if course is published
+            if (!$course->is_published) {
+                return response()->json(['message' => 'This course is not available for purchase'], 400);
+            }
+
+            // Check if user already purchased this course
+            if (CourseEnrollment::where('course_id', $course->id)
+                    ->where('student_id', Auth::id())
+                    ->exists()) {
+                return response()->json(['message' => 'You already own this course'], 400);
+            }
+
+            // Check if price is zero (free course)
+            if ($course->price <= 0) {
+                return response()->json([
+                    'success' => true,
+                    'requires_payment' => false,
+                    'message' => 'This is a free course',
+                ]);
+            }
+
+            // Create payment intent
+            $paymentIntent = $this->paymentService->createPaymentIntent(
+                $course->price,
+                'usd',
+                [
+                    'course_id' => $course->id,
+                    'student_id' => Auth::id(),
+                    'teacher_id' => $course->teacher_id,
+                    'course_title' => $course->title,
+                    'type' => 'course_purchase',
+                ]
+            );
+
+            if (!$paymentIntent['success']) {
+                return response()->json([
+                    'message' => 'Failed to create payment intent',
+                    'error' => $paymentIntent['error']
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'requires_payment' => true,
+                'client_secret' => $paymentIntent['client_secret'],
+                'payment_intent_id' => $paymentIntent['payment_intent_id'],
+                'amount' => $paymentIntent['amount'],
+                'course' => [
+                    'id' => $course->id,
+                    'title' => $course->title,
+                    'subject' => $course->subject->name ?? 'Course',
+                    'teacher' => $course->teacher->name,
+                    'price' => $course->price,
+                    'old_price' => $course->old_price,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Create course payment intent failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'Failed to create payment intent'
+            ], 500);
+        }
+    }
+
+
+
+    /**
+     * @OA\Post(
+     *     path="/api/courses/confirm-purchase",
+     *     tags={"Course Payment"},
+     *     summary="Confirm course purchase",
+     *     description="Confirms the course purchase after payment verification. Creates enrollment record and sends confirmation emails to both student and teacher.",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"course_id"},
+     *             @OA\Property(property="course_id", type="integer", example=1, description="ID of the course to purchase"),
+     *             @OA\Property(property="payment_intent_id", type="string", example="pi_xxxxx", description="Stripe payment intent ID (required for paid courses)", nullable=true)
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Course purchase confirmed successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Course purchased successfully"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="enrollment_id", type="integer", example=123),
+     *                 @OA\Property(property="course_id", type="integer", example=1),
+     *                 @OA\Property(property="payment_status", type="string", example="paid", enum={"free", "paid"}),
+     *                 @OA\Property(property="amount_paid", type="number", format="float", example=99.99)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Bad request - Validation or business logic error",
+     *         @OA\JsonContent(
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="This course is not available")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="You already own this course")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="Payment intent ID is required")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="Failed to verify payment")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="Payment not completed"),
+     *                     @OA\Property(property="payment_status", type="string", example="processing")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Course not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Course not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Server error - Transaction rolled back",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Purchase confirmation failed. Please contact support.")
+     *         )
+     *     )
+     * )
+     */
+
+    public function confirmCoursePurchase(Request $request)
+    {
+        $validated = $request->validate([
+            'course_id' => 'required|exists:courses,id',
+            'payment_intent_id' => 'nullable|string', // nullable for free courses
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $course = Course::with('teacher', 'subject')
+                ->lockForUpdate()
+                ->findOrFail($validated['course_id']);
+
+            // Re-check if course is published
+            if (!$course->is_published) {
+                DB::rollBack();
+                return response()->json(['message' => 'This course is not available'], 400);
+            }
+
+            // Re-check duplicate purchase
+            if (CourseEnrollment::where('course_id', $course->id)
+                    ->where('student_id', Auth::id())
+                    ->exists()) {
+                DB::rollBack();
+                return response()->json(['message' => 'You already own this course'], 400);
+            }
+
+            // Verify payment if required
+            $paymentStatus = 'free';
+            $paymentIntentId = null;
+            $amountPaid = 0;
+
+            if ($course->price > 0) {
+                if (!$validated['payment_intent_id']) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Payment intent ID is required'], 400);
+                }
+
+                // Verify payment with Stripe
+                $paymentResult = $this->paymentService->getPaymentIntent($validated['payment_intent_id']);
+
+                if (!$paymentResult['success']) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Failed to verify payment'], 400);
+                }
+
+                if ($paymentResult['status'] !== 'succeeded') {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Payment not completed',
+                        'payment_status' => $paymentResult['status']
+                    ], 400);
+                }
+
+                $paymentStatus = 'paid';
+                $paymentIntentId = $validated['payment_intent_id'];
+                $amountPaid = $paymentResult['amount'];
+            }
+
+            // Create course enrollment
+            $enrollment = CourseEnrollment::create([
+                'course_id' => $course->id,
+                'student_id' => Auth::id(),
+                'teacher_id' => $course->teacher_id,
+                'enrolled_at' => now(),
+                'payment_status' => $paymentStatus,
+                'payment_intent_id' => $paymentIntentId,
+                'payment_method' => $paymentIntentId ? 'stripe' : null,
+                'amount_paid' => $amountPaid,
+                'currency' => 'usd',
+                'paid_at' => $paymentStatus === 'paid' ? now() : null,
+                'status' => 'active',
+            ]);
+
+            // Increment enrollment count
+            $course->increment('enrollment_count');
+
+            DB::commit();
+
+            // Send emails AFTER commit
+            Mail::to($course->teacher->email)->queue(new CourseEnrolledMail($enrollment, 'teacher'));
+            Mail::to(Auth::user()->email)->queue(new CourseEnrolledMail($enrollment, 'student'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Course purchased successfully',
+                'data' => [
+                    'enrollment_id' => $enrollment->id,
+                    'course_id' => $course->id,
+                    'payment_status' => $paymentStatus,
+                    'amount_paid' => $amountPaid,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Course purchase confirmation failed: ' . $e->getMessage(), [
+                'course_id' => $validated['course_id'],
+                'payment_intent_id' => $validated['payment_intent_id'] ?? null,
+            ]);
+            
+            return response()->json([
+                'message' => 'Purchase confirmation failed. Please contact support.'
+            ], 500);
+        }
     }
 
 

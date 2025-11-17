@@ -38,6 +38,7 @@ return [
     'firebase' => [
         'credentials' => env('FIREBASE_CREDENTIALS'),
         'project_id' => env('FIREBASE_PROJECT_ID'),
+        'storage_bucket' => env('FIREBASE_STORAGE_BUCKET'),
     ],
 
     'google' => [

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Course extends Model
 {
     protected $fillable = [
-        'teacher_id', 'subject_id', 'title', 'description', 'thumbnail_url', 'old_price', 'price', 'is_published', 'enrollment_count',
+        'teacher_id', 'subject_id', 'title', 'description', 'thumbnail_url', 'old_price', 'price', 'is_published', 'enrollment_count', 'processing_status'
     ];
 
     public function teacher()

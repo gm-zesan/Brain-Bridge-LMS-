@@ -17,11 +17,17 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->integer('duration_hours')->nullable();
+            $table->string('video_url')->nullable();
             $table->string('video_path')->nullable();
             $table->string('file_size')->nullable();
             $table->string('mime_type')->nullable();
             $table->string('filename')->nullable();
             $table->boolean('is_published')->default(true);
+            
+            $table->string('upload_status')->default('pending'); // pending, processing, completed, failed
+            $table->text('upload_error')->nullable();
+            $table->string('temp_path')->nullable();
+            $table->timestamp('uploaded_at')->nullable();
             $table->timestamps();
         });
     }

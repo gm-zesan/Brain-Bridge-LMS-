@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     
     Route::apiResource('courses', CourseController::class);
+    Route::get('/courses/{course}/upload-status', [CourseController::class, 'getUploadStatus']);
     // Course purchase routes
     Route::post('/courses/payment-intent', [CourseController::class, 'createCoursePaymentIntent']);
     Route::post('/courses/confirm-purchase', [CourseController::class, 'confirmCoursePurchase']);

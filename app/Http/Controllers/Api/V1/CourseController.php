@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\UploadVideoToFirebase;
 use App\Mail\CourseEnrolledMail;
 use App\Models\Course;
 use App\Models\CourseEnrollment;
@@ -830,9 +831,16 @@ class CourseController extends Controller
      *     )
      * )
      */
+    
+
     // public function store(Request $request)
     // {
-    //     // dd($request->all());
+    //     // Increase execution time for large uploads
+    //     set_time_limit(600);
+    //     ini_set('max_execution_time', 600);
+    //     ini_set('memory_limit', '512M');
+
+
     //     // Validate incoming request
     //     $validated = $request->validate([
     //         // Course validation
@@ -872,7 +880,7 @@ class CourseController extends Controller
     //         'teacher_id' => Auth::id(),
     //     ];
 
-    //     // Handle thumbnail upload
+    //     // Handle thumbnail upload (keep this local or upload to Firebase too)
     //     if ($request->hasFile('thumbnail_url')) {
     //         $thumbnail = $request->file('thumbnail_url');
     //         $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
@@ -886,6 +894,9 @@ class CourseController extends Controller
     //     $createdModules = [];
     //     $createdVideos = [];
     //     $totalDuration = 0;
+
+    //     // Initialize Firebase Service
+    //     $firebaseService = app(FirebaseService::class);
 
     //     // Process modules and videos
     //     foreach ($validated['modules'] as $moduleData) {
@@ -902,20 +913,37 @@ class CourseController extends Controller
     //         // Process videos for this module
     //         if (!empty($moduleData['videos'])) {
     //             foreach ($moduleData['videos'] as $videoData) {
-    //                 // Upload video file
+    //                 // Upload video file to Firebase Storage
     //                 $videoFile = $videoData['file'];
-    //                 $videoName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-    //                 $videoPath = $videoFile->storeAs('videos', $videoName);
+                    
+    //                 $uploadResult = $firebaseService->uploadCourseVideo(
+    //                     $videoFile,
+    //                     $course->id,
+    //                     [
+    //                         'maxSize' => 500 * 1024 * 1024, // 500MB
+    //                         'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
+    //                     ]
+    //                 );
 
-    //                 // Create video lesson
+    //                 if (!$uploadResult['success']) {
+    //                     // Rollback and return error
+    //                     DB::rollBack();
+    //                     return response()->json([
+    //                         'success' => false,
+    //                         'message' => 'Video upload failed: ' . $uploadResult['error']
+    //                     ], 500);
+    //                 }
+
+    //                 // Create video lesson with Firebase Storage data
     //                 $videoLesson = VideoLesson::create([
     //                     'module_id' => $module->id,
     //                     'title' => $videoData['title'],
     //                     'description' => $videoData['description'] ?? null,
     //                     'duration_hours' => $videoData['duration_hours'] ?? 0,
-    //                     'video_url' => 'videos/' . $videoName,
-    //                     'video_path' => $videoPath,
-    //                     'filename' => $videoName,
+    //                     'video_path' => $uploadResult['path'],
+    //                     'filename' => $uploadResult['filename'],
+    //                     'file_size' => $uploadResult['size'],
+    //                     'mime_type' => $uploadResult['mime_type'],
     //                     'is_published' => $videoData['is_published'] ?? false,
     //                 ]);
 
@@ -929,13 +957,13 @@ class CourseController extends Controller
 
     //     return response()->json([
     //         'success' => true,
-    //         'message' => 'Course created successfully with %d module%s and %d video%s',
+    //         'message' => 'Course created successfully',
     //         'data' => [
     //             'course' => $course,
     //             'modules' => $createdModules,
     //             'videos' => $createdVideos,
+    //             'total_duration' => $totalDuration
     //         ]
-
     //     ], 201);
     // }
 
@@ -977,11 +1005,11 @@ class CourseController extends Controller
                 'subject_id' => $validated['subject_id'],
                 'price' => $validated['price'],
                 'old_price' => $validated['old_price'] ?? null,
-                'is_published' => $validated['is_published'] ?? false,
+                'is_published' => false, // Keep unpublished until videos upload
                 'teacher_id' => Auth::id(),
             ];
 
-            // Handle thumbnail upload (keep this local or upload to Firebase too)
+            // Handle thumbnail upload
             if ($request->hasFile('thumbnail_url')) {
                 $thumbnail = $request->file('thumbnail_url');
                 $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
@@ -993,11 +1021,7 @@ class CourseController extends Controller
             $course = Course::create($courseData);
 
             $createdModules = [];
-            $createdVideos = [];
-            $totalDuration = 0;
-
-            // Initialize Firebase Service
-            $firebaseService = app(FirebaseService::class);
+            $queuedVideos = 0;
 
             // Process modules and videos
             foreach ($validated['modules'] as $moduleData) {
@@ -1014,42 +1038,45 @@ class CourseController extends Controller
                 // Process videos for this module
                 if (!empty($moduleData['videos'])) {
                     foreach ($moduleData['videos'] as $videoData) {
-                        // Upload video file to Firebase Storage
                         $videoFile = $videoData['file'];
                         
-                        $uploadResult = $firebaseService->uploadCourseVideo(
-                            $videoFile,
-                            $course->id,
-                            [
-                                'maxSize' => 500 * 1024 * 1024, // 500MB
-                                'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
-                            ]
-                        );
+                        // Save video temporarily to local storage
+                        $tempFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+                        $tempPath = $videoFile->storeAs('temp_videos', $tempFileName, 'local');
 
-                        if (!$uploadResult['success']) {
-                            // Rollback and return error
-                            DB::rollBack();
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Video upload failed: ' . $uploadResult['error']
-                            ], 500);
-                        }
+                        Log::info('Video saved temporarily', [
+                            'temp_path' => $tempPath,
+                            'original_name' => $videoFile->getClientOriginalName()
+                        ]);
 
-                        // Create video lesson with Firebase Storage data
+                        // Create video lesson with pending status
                         $videoLesson = VideoLesson::create([
                             'module_id' => $module->id,
                             'title' => $videoData['title'],
                             'description' => $videoData['description'] ?? null,
                             'duration_hours' => $videoData['duration_hours'] ?? 0,
-                            'video_path' => $uploadResult['path'], // Firebase storage path
-                            'filename' => $uploadResult['filename'],
-                            'file_size' => $uploadResult['size'],
-                            'mime_type' => $uploadResult['mime_type'],
-                            'is_published' => $videoData['is_published'] ?? false,
+                            'video_path' => null, // Will be set after upload
+                            'filename' => $videoFile->getClientOriginalName(),
+                            'file_size' => $videoFile->getSize(),
+                            'mime_type' => $videoFile->getMimeType(),
+                            'upload_status' => 'pending', // pending, processing, completed, failed
+                            'temp_path' => $tempPath, // Store temp path
+                            'is_published' => false, // Don't publish until uploaded
                         ]);
 
-                        $createdVideos[] = $videoLesson;
-                        $totalDuration += $videoLesson->duration_hours;
+                        // Queue the video upload job
+                        UploadVideoToFirebase::dispatch(
+                            $videoLesson->id,
+                            $tempPath,
+                            $course->id
+                        )->onQueue('video-uploads');
+
+                        $queuedVideos++;
+
+                        Log::info('Video upload queued', [
+                            'video_lesson_id' => $videoLesson->id,
+                            'temp_path' => $tempPath
+                        ]);
                     }
                 }
             }
@@ -1058,23 +1085,133 @@ class CourseController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Course created successfully',
+                'message' => 'Course created successfully. Videos are being uploaded in the background.',
                 'data' => [
-                    'course' => $course,
-                    'modules' => $createdModules,
-                    'videos' => $createdVideos,
-                    'total_duration' => $totalDuration
+                    'course' => $course->fresh(),
+                    'modules_count' => count($createdModules),
+                    'videos_queued' => $queuedVideos,
+                    'status' => 'Videos are being processed. Check back in a few minutes.'
                 ]
             ], 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
             
+            Log::error('Course creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create course: ' . $e->getMessage()
+                'message' => 'Course creation failed: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/courses/{courseId}/upload-status",
+     *     tags={"Course Management"},
+     *     summary="Get video upload status for a course",
+     *     description="Returns detailed upload status information for all videos in a course including completion progress, processing status, and failure counts. Useful for tracking bulk video upload progress.",
+     *     @OA\Parameter(
+     *         name="courseId",
+     *         in="path",
+     *         required=true,
+     *         description="ID of the course to check upload status",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Upload status retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="course_id", type="integer", example=1, description="ID of the course"),
+     *                 @OA\Property(property="total_videos", type="integer", example=15, description="Total number of videos in the course"),
+     *                 @OA\Property(property="completed", type="integer", example=12, description="Number of videos successfully uploaded"),
+     *                 @OA\Property(property="processing", type="integer", example=2, description="Number of videos currently being processed"),
+     *                 @OA\Property(property="failed", type="integer", example=1, description="Number of videos that failed to upload"),
+     *                 @OA\Property(property="progress_percentage", type="number", format="float", example=80.00, description="Percentage of videos completed (0-100)"),
+     *                 @OA\Property(property="is_complete", type="boolean", example=false, description="Whether all videos have been successfully uploaded")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden - User doesn't have access to this course",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="You don't have permission to access this course")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Course not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Course not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Failed to retrieve upload status")
+     *         )
+     *     )
+     * )
+     */
+    
+    public function getUploadStatus($courseId)
+    {
+        $course = Course::with(['modules.videoLessons'])->findOrFail($courseId);
+
+        $totalVideos = 0;
+        $completedVideos = 0;
+        $failedVideos = 0;
+        $processingVideos = 0;
+
+        foreach ($course->modules as $module) {
+            foreach ($module->videoLessons as $video) {
+                $totalVideos++;
+                
+                switch ($video->upload_status) {
+                    case 'completed':
+                        $completedVideos++;
+                        break;
+                    case 'failed':
+                        $failedVideos++;
+                        break;
+                    case 'processing':
+                        $processingVideos++;
+                        break;
+                }
+            }
+        }
+
+        $progress = $totalVideos > 0 ? round(($completedVideos / $totalVideos) * 100, 2) : 0;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'course_id' => $course->id,
+                'total_videos' => $totalVideos,
+                'completed' => $completedVideos,
+                'processing' => $processingVideos,
+                'failed' => $failedVideos,
+                'progress_percentage' => $progress,
+                'is_complete' => $completedVideos === $totalVideos && $totalVideos > 0,
+            ]
+        ]);
     }
 
 

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->decimal('price', 8, 2)->default(0.00);
             $table->boolean('is_published')->default(false);
             $table->integer('enrollment_count')->default(0);
+            $table->string('processing_status')->default('pending'); // pending, processing, completed, failed
             $table->timestamps();
         });
     }

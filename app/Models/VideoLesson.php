@@ -16,6 +16,10 @@ class VideoLesson extends Model
         'file_size',
         'mime_type',
         'is_published',
+        'upload_status',
+        'upload_error',
+        'temp_path',
+        'uploaded_at'
     ];
 
     public function module()

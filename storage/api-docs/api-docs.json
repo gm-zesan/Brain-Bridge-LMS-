@@ -2419,6 +2419,156 @@
                 ]
             }
         },
+        "/api/courses/{courseId}/upload-status": {
+            "get": {
+                "tags": [
+                    "Course Management"
+                ],
+                "summary": "Get video upload status for a course",
+                "description": "Returns detailed upload status information for all videos in a course including completion progress, processing status, and failure counts. Useful for tracking bulk video upload progress.",
+                "operationId": "2d5b709970d678e195ecd610230b9226",
+                "parameters": [
+                    {
+                        "name": "courseId",
+                        "in": "path",
+                        "description": "ID of the course to check upload status",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Upload status retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "course_id": {
+                                                    "description": "ID of the course",
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "total_videos": {
+                                                    "description": "Total number of videos in the course",
+                                                    "type": "integer",
+                                                    "example": 15
+                                                },
+                                                "completed": {
+                                                    "description": "Number of videos successfully uploaded",
+                                                    "type": "integer",
+                                                    "example": 12
+                                                },
+                                                "processing": {
+                                                    "description": "Number of videos currently being processed",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "failed": {
+                                                    "description": "Number of videos that failed to upload",
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "progress_percentage": {
+                                                    "description": "Percentage of videos completed (0-100)",
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 80
+                                                },
+                                                "is_complete": {
+                                                    "description": "Whether all videos have been successfully uploaded",
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - User doesn't have access to this course",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "You don't have permission to access this course"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Course not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to retrieve upload status"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/courses/{id}": {
             "get": {
                 "tags": [
@@ -4375,6 +4525,10 @@
         {
             "name": "Course Payment",
             "description": "Course Payment"
+        },
+        {
+            "name": "Course Management",
+            "description": "Course Management"
         },
         {
             "name": "Skills",

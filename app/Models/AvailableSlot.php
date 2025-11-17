@@ -25,8 +25,6 @@ class AvailableSlot extends Model
     protected $casts = [
         'from_date' => 'date',
         'to_date' => 'date',
-        'start_time' => 'time',
-        'end_time' => 'time',
         'is_booked' => 'boolean',
     ];
 

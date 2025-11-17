@@ -768,7 +768,8 @@
                                         "type": "string"
                                     },
                                     "subject_id": {
-                                        "type": "integer"
+                                        "type": "integer",
+                                        "example": 1
                                     },
                                     "from_date": {
                                         "type": "string",
@@ -802,10 +803,12 @@
                                         ]
                                     },
                                     "price": {
-                                        "type": "number"
+                                        "type": "number",
+                                        "example": 50
                                     },
                                     "max_students": {
-                                        "type": "integer"
+                                        "type": "integer",
+                                        "example": 1
                                     },
                                     "description": {
                                         "type": "string"
@@ -969,7 +972,7 @@
                                     "max_students": {
                                         "description": "Maximum number of students (minimum 1)",
                                         "type": "integer",
-                                        "example": 5
+                                        "example": 1
                                     },
                                     "description": {
                                         "description": "Slot description",
@@ -2601,80 +2604,6 @@
                     }
                 ]
             },
-            "put": {
-                "tags": [
-                    "Courses"
-                ],
-                "summary": "Update an existing course",
-                "operationId": "3a15d90a740c55a47f52fd55b6fa343f",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "Course ID",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "title": {
-                                        "type": "string",
-                                        "example": "Updated Laravel Masterclass"
-                                    },
-                                    "description": {
-                                        "type": "string",
-                                        "example": "Updated description"
-                                    },
-                                    "thumbnail_url": {
-                                        "type": "string",
-                                        "example": "https://example.com/new-image.jpg"
-                                    },
-                                    "subject_id": {
-                                        "type": "integer",
-                                        "example": 2
-                                    },
-                                    "old_price": {
-                                        "type": "number",
-                                        "example": 4999
-                                    },
-                                    "price": {
-                                        "type": "number",
-                                        "example": 2999
-                                    },
-                                    "is_published": {
-                                        "type": "boolean",
-                                        "example": true
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Course updated successfully"
-                    },
-                    "404": {
-                        "description": "Course not found"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            },
             "delete": {
                 "tags": [
                     "Courses"
@@ -2701,6 +2630,363 @@
                     },
                     "401": {
                         "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/courses/{courseId}": {
+            "put": {
+                "tags": [
+                    "Courses"
+                ],
+                "summary": "Update course with modules and videos",
+                "description": "Updates an existing course including its modules and videos. Supports background video upload for new/replaced videos. Can add, update, or delete modules and videos. Only the course owner can update.",
+                "operationId": "e4fb8003e8bf204f662e2f5c1100f73c",
+                "parameters": [
+                    {
+                        "name": "courseId",
+                        "in": "path",
+                        "description": "ID of the course to update",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Course update data with modules and videos. Use multipart/form-data for file uploads.",
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "title",
+                                    "description",
+                                    "subject_id",
+                                    "price",
+                                    "modules"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "example": "Complete Web Development Course - Updated"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Learn full-stack web development from scratch with updated content"
+                                    },
+                                    "thumbnail_url": {
+                                        "description": "New course thumbnail image (optional, jpeg/jpg/png/gif, max 5MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "subject_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 129.99
+                                    },
+                                    "old_price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 199.99,
+                                        "nullable": true
+                                    },
+                                    "is_published": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "modules": {
+                                        "description": "Array of modules. Include 'id' for existing modules, omit for new ones.",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "title",
+                                                "order_index"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "description": "Module ID (required for existing modules)",
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "maxLength": 255,
+                                                    "example": "Advanced JavaScript"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "Deep dive into JavaScript",
+                                                    "nullable": true
+                                                },
+                                                "order_index": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "example": 1
+                                                },
+                                                "action": {
+                                                    "description": "Action to perform on this module",
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "keep",
+                                                        "delete"
+                                                    ],
+                                                    "example": "keep"
+                                                },
+                                                "videos": {
+                                                    "description": "Array of videos. Include 'id' for existing videos, omit for new ones.",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "required": [
+                                                            "title"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "description": "Video ID (required for existing videos)",
+                                                                "type": "integer",
+                                                                "example": 5
+                                                            },
+                                                            "title": {
+                                                                "type": "string",
+                                                                "maxLength": 255,
+                                                                "example": "ES6 Features"
+                                                            },
+                                                            "description": {
+                                                                "type": "string",
+                                                                "example": "Learn about ES6 syntax",
+                                                                "nullable": true
+                                                            },
+                                                            "duration_hours": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 2.5,
+                                                                "nullable": true
+                                                            },
+                                                            "file": {
+                                                                "description": "New/replacement video file (optional, mp4/avi/mov/quicktime, max 500MB)",
+                                                                "type": "string",
+                                                                "format": "binary"
+                                                            },
+                                                            "is_published": {
+                                                                "type": "boolean",
+                                                                "example": true
+                                                            },
+                                                            "action": {
+                                                                "description": "keep=no changes, update=replace video, delete=remove video",
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "keep",
+                                                                    "update",
+                                                                    "delete"
+                                                                ],
+                                                                "example": "keep"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Course updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course updated successfully. 2 video(s) are being uploaded in the background."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "course": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "title": {
+                                                            "type": "string",
+                                                            "example": "Complete Web Development Course - Updated"
+                                                        },
+                                                        "description": {
+                                                            "type": "string",
+                                                            "example": "Learn full-stack web development"
+                                                        },
+                                                        "thumbnail_url": {
+                                                            "type": "string",
+                                                            "example": "thumbnails/1234567890_abc123.jpg"
+                                                        },
+                                                        "subject_id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "price": {
+                                                            "type": "number",
+                                                            "format": "float",
+                                                            "example": 129.99
+                                                        },
+                                                        "old_price": {
+                                                            "type": "number",
+                                                            "format": "float",
+                                                            "example": 199.99
+                                                        },
+                                                        "is_published": {
+                                                            "type": "boolean",
+                                                            "example": true
+                                                        },
+                                                        "teacher_id": {
+                                                            "type": "integer",
+                                                            "example": 10
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "modules_count": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "videos_queued": {
+                                                    "description": "Number of videos being uploaded in background",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "Some videos are being processed. Check upload status endpoint."
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The given data was invalid."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "title": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The title field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Not the course owner",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthorized to update this course"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Course not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Update failed: Database connection error"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [

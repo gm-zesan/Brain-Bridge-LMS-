@@ -703,7 +703,7 @@ class AvailableSlotController extends Controller
      *         required=true,
      *         @OA\JsonContent(
      *             @OA\Property(property="title", type="string"),
-     *             @OA\Property(property="subject_id", type="integer"),
+     *             @OA\Property(property="subject_id", type="integer", example=1),
      *             @OA\Property(property="from_date", type="string", format="date"),
      *             @OA\Property(property="to_date", type="string", format="date"),
      *             @OA\Property(property="slots", type="array",
@@ -713,8 +713,8 @@ class AvailableSlotController extends Controller
      *                 )
      *             ),
      *             @OA\Property(property="type", type="string", enum={"one_to_one","group"}),
-     *             @OA\Property(property="price", type="number"),
-     *             @OA\Property(property="max_students", type="integer"),
+     *             @OA\Property(property="price", type="number", example=50),
+     *             @OA\Property(property="max_students", type="integer", example=1,),
      *             @OA\Property(property="description", type="string")
      *         )
      *     ),
@@ -746,7 +746,8 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -796,7 +797,6 @@ class AvailableSlotController extends Controller
      *     description="Teacher updates their own slot. Cannot update if the slot has bookings. All fields are optional.",
      *     operationId="updateSlot",
      *     tags={"Available Slots"},
-     *     security={{"bearerAuth": {}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -870,7 +870,7 @@ class AvailableSlotController extends Controller
      *                 property="max_students",
      *                 type="integer",
      *                 description="Maximum number of students (minimum 1)",
-     *                 example=5
+     *                 example=1
      *             ),
      *             @OA\Property(
      *                 property="description",

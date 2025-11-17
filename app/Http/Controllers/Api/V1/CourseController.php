@@ -129,7 +129,8 @@ class CourseController extends Controller
      *         )
      *     )
      * )
-     */
+    */
+
     public function allCourses()
     {
         $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons'])
@@ -159,7 +160,8 @@ class CourseController extends Controller
      *     @OA\Response(response=200, description="Course retrieved successfully"),
      *     @OA\Response(response=404, description="Course not found")
      * )
-     */
+    */
+
     public function courseDetails(Course $course)
     {
         if (!$course) {
@@ -190,7 +192,7 @@ class CourseController extends Controller
      *     tags={"Course Payment"},
      *     summary="Create payment intent for course purchase",
      *     description="Creates a Stripe payment intent for purchasing a course. Returns payment details or indicates if the course is free.",
-     *     security={{"bearerAuth":{}}},
+     *     
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -249,7 +251,7 @@ class CourseController extends Controller
      *         )
      *     )
      * )
-     */
+    */
 
     public function createCoursePaymentIntent(Request $request)
     {
@@ -335,7 +337,7 @@ class CourseController extends Controller
      *     tags={"Course Payment"},
      *     summary="Confirm course purchase",
      *     description="Confirms the course purchase after payment verification. Creates enrollment record and sends confirmation emails to both student and teacher.",
-     *     security={{"bearerAuth":{}}},
+     *     
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -406,7 +408,7 @@ class CourseController extends Controller
      *         )
      *     )
      * )
-     */
+    */
 
     public function confirmCoursePurchase(Request $request)
     {
@@ -523,7 +525,8 @@ class CourseController extends Controller
      *     summary="Get all published courses",
      *     @OA\Response(response=200, description="List of courses retrieved successfully")
      * )
-     */
+    */
+
     public function index()
     {
         $query = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons']);
@@ -830,142 +833,8 @@ class CourseController extends Controller
      *         )
      *     )
      * )
-     */
+    */
     
-
-    // public function store(Request $request)
-    // {
-    //     // Increase execution time for large uploads
-    //     set_time_limit(600);
-    //     ini_set('max_execution_time', 600);
-    //     ini_set('memory_limit', '512M');
-
-
-    //     // Validate incoming request
-    //     $validated = $request->validate([
-    //         // Course validation
-    //         'title' => 'required|string|max:255',
-    //         'description' => 'required|string',
-    //         'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120', // 5MB
-    //         'subject_id' => 'required|exists:subjects,id',
-    //         'price' => 'required|numeric|min:0',
-    //         'old_price' => 'nullable|numeric|min:0',
-    //         'is_published' => 'nullable|boolean',
-
-    //         // Modules validation
-    //         'modules' => 'required|array|min:1',
-    //         'modules.*.title' => 'required|string|max:255',
-    //         'modules.*.description' => 'nullable|string',
-    //         'modules.*.order_index' => 'required|integer|min:1',
-
-    //         // Videos validation
-    //         'modules.*.videos' => 'nullable|array',
-    //         'modules.*.videos.*.title' => 'required|string|max:255',
-    //         'modules.*.videos.*.description' => 'nullable|string',
-    //         'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
-    //         'modules.*.videos.*.file' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000', // 500MB
-    //         'modules.*.videos.*.is_published' => 'nullable|boolean',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     // Prepare course data
-    //     $courseData = [
-    //         'title' => $validated['title'],
-    //         'description' => $validated['description'],
-    //         'subject_id' => $validated['subject_id'],
-    //         'price' => $validated['price'],
-    //         'old_price' => $validated['old_price'] ?? null,
-    //         'is_published' => $validated['is_published'] ?? false,
-    //         'teacher_id' => Auth::id(),
-    //     ];
-
-    //     // Handle thumbnail upload (keep this local or upload to Firebase too)
-    //     if ($request->hasFile('thumbnail_url')) {
-    //         $thumbnail = $request->file('thumbnail_url');
-    //         $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-    //         $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName);
-    //         $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
-    //     }
-
-    //     // Create course
-    //     $course = Course::create($courseData);
-
-    //     $createdModules = [];
-    //     $createdVideos = [];
-    //     $totalDuration = 0;
-
-    //     // Initialize Firebase Service
-    //     $firebaseService = app(FirebaseService::class);
-
-    //     // Process modules and videos
-    //     foreach ($validated['modules'] as $moduleData) {
-    //         // Create module
-    //         $module = Module::create([
-    //             'course_id' => $course->id,
-    //             'title' => $moduleData['title'],
-    //             'description' => $moduleData['description'] ?? null,
-    //             'order_index' => $moduleData['order_index'],
-    //         ]);
-
-    //         $createdModules[] = $module;
-
-    //         // Process videos for this module
-    //         if (!empty($moduleData['videos'])) {
-    //             foreach ($moduleData['videos'] as $videoData) {
-    //                 // Upload video file to Firebase Storage
-    //                 $videoFile = $videoData['file'];
-                    
-    //                 $uploadResult = $firebaseService->uploadCourseVideo(
-    //                     $videoFile,
-    //                     $course->id,
-    //                     [
-    //                         'maxSize' => 500 * 1024 * 1024, // 500MB
-    //                         'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
-    //                     ]
-    //                 );
-
-    //                 if (!$uploadResult['success']) {
-    //                     // Rollback and return error
-    //                     DB::rollBack();
-    //                     return response()->json([
-    //                         'success' => false,
-    //                         'message' => 'Video upload failed: ' . $uploadResult['error']
-    //                     ], 500);
-    //                 }
-
-    //                 // Create video lesson with Firebase Storage data
-    //                 $videoLesson = VideoLesson::create([
-    //                     'module_id' => $module->id,
-    //                     'title' => $videoData['title'],
-    //                     'description' => $videoData['description'] ?? null,
-    //                     'duration_hours' => $videoData['duration_hours'] ?? 0,
-    //                     'video_path' => $uploadResult['path'],
-    //                     'filename' => $uploadResult['filename'],
-    //                     'file_size' => $uploadResult['size'],
-    //                     'mime_type' => $uploadResult['mime_type'],
-    //                     'is_published' => $videoData['is_published'] ?? false,
-    //                 ]);
-
-    //                 $createdVideos[] = $videoLesson;
-    //                 $totalDuration += $videoLesson->duration_hours;
-    //             }
-    //         }
-    //     }
-
-    //     DB::commit();
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'message' => 'Course created successfully',
-    //         'data' => [
-    //             'course' => $course,
-    //             'modules' => $createdModules,
-    //             'videos' => $createdVideos,
-    //             'total_duration' => $totalDuration
-    //         ]
-    //     ], 201);
-    // }
 
     public function store(Request $request)
     {
@@ -1169,7 +1038,7 @@ class CourseController extends Controller
      *         )
      *     )
      * )
-     */
+    */
     
     public function getUploadStatus($courseId)
     {
@@ -1231,7 +1100,8 @@ class CourseController extends Controller
      *     @OA\Response(response=200, description="Course retrieved successfully"),
      *     @OA\Response(response=404, description="Course not found")
      * )
-     */
+    */
+
     public function show(Course $course)
     {
         if (!$course) {
@@ -1245,35 +1115,152 @@ class CourseController extends Controller
 
     /**
      * @OA\Put(
-     *     path="/api/courses/{id}",
+     *     path="/api/courses/{courseId}",
      *     tags={"Courses"},
-     *     summary="Update an existing course",
+     *     summary="Update course with modules and videos",
+     *     description="Updates an existing course including its modules and videos. Supports background video upload for new/replaced videos. Can add, update, or delete modules and videos. Only the course owner can update.",
+     *     
      *     @OA\Parameter(
-     *         name="id",
+     *         name="courseId",
      *         in="path",
      *         required=true,
-     *         description="Course ID",
-     *         @OA\Schema(type="integer")
+     *         description="ID of the course to update",
+     *         @OA\Schema(type="integer", example=1)
      *     ),
      *     @OA\RequestBody(
      *         required=true,
-     *         @OA\JsonContent(
-     *             @OA\Property(property="title", type="string", example="Updated Laravel Masterclass"),
-     *             @OA\Property(property="description", type="string", example="Updated description"),
-     *             @OA\Property(property="thumbnail_url", type="string", example="https://example.com/new-image.jpg"),
-     *             @OA\Property(property="subject_id", type="integer", example=2),
-     *             @OA\Property(property="old_price", type="number", example=4999),
-     *             @OA\Property(property="price", type="number", example=2999),
-     *             @OA\Property(property="is_published", type="boolean", example=true)
+     *         description="Course update data with modules and videos. Use multipart/form-data for file uploads.",
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"title", "description", "subject_id", "price", "modules"},
+     *                 @OA\Property(property="title", type="string", maxLength=255, example="Complete Web Development Course - Updated"),
+     *                 @OA\Property(property="description", type="string", example="Learn full-stack web development from scratch with updated content"),
+     *                 @OA\Property(property="thumbnail_url", type="string", format="binary", description="New course thumbnail image (optional, jpeg/jpg/png/gif, max 5MB)"),
+     *                 @OA\Property(property="subject_id", type="integer", example=1),
+     *                 @OA\Property(property="price", type="number", format="float", example=129.99),
+     *                 @OA\Property(property="old_price", type="number", format="float", example=199.99, nullable=true),
+     *                 @OA\Property(property="is_published", type="boolean", example=true),
+     *                 @OA\Property(
+     *                     property="modules",
+     *                     type="array",
+     *                     description="Array of modules. Include 'id' for existing modules, omit for new ones.",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         required={"title", "order_index"},
+     *                         @OA\Property(property="id", type="integer", example=1, description="Module ID (required for existing modules)"),
+     *                         @OA\Property(property="title", type="string", maxLength=255, example="Advanced JavaScript"),
+     *                         @OA\Property(property="description", type="string", example="Deep dive into JavaScript", nullable=true),
+     *                         @OA\Property(property="order_index", type="integer", minimum=1, example=1),
+     *                         @OA\Property(property="action", type="string", enum={"keep", "delete"}, example="keep", description="Action to perform on this module"),
+     *                         @OA\Property(
+     *                             property="videos",
+     *                             type="array",
+     *                             description="Array of videos. Include 'id' for existing videos, omit for new ones.",
+     *                             @OA\Items(
+     *                                 type="object",
+     *                                 required={"title"},
+     *                                 @OA\Property(property="id", type="integer", example=5, description="Video ID (required for existing videos)"),
+     *                                 @OA\Property(property="title", type="string", maxLength=255, example="ES6 Features"),
+     *                                 @OA\Property(property="description", type="string", example="Learn about ES6 syntax", nullable=true),
+     *                                 @OA\Property(property="duration_hours", type="number", format="float", example=2.5, nullable=true),
+     *                                 @OA\Property(property="file", type="string", format="binary", description="New/replacement video file (optional, mp4/avi/mov/quicktime, max 500MB)"),
+     *                                 @OA\Property(property="is_published", type="boolean", example=true),
+     *                                 @OA\Property(property="action", type="string", enum={"keep", "update", "delete"}, example="keep", description="keep=no changes, update=replace video, delete=remove video")
+     *                             )
+     *                         )
+     *                     )
+     *                 )
+     *             )
      *         )
      *     ),
-     *     @OA\Response(response=200, description="Course updated successfully"),
-     *     @OA\Response(response=404, description="Course not found"),
-     *     @OA\Response(response=401, description="Unauthorized")
+     *     @OA\Response(
+     *         response=200,
+     *         description="Course updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Course updated successfully. 2 video(s) are being uploaded in the background."),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="course",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="title", type="string", example="Complete Web Development Course - Updated"),
+     *                     @OA\Property(property="description", type="string", example="Learn full-stack web development"),
+     *                     @OA\Property(property="thumbnail_url", type="string", example="thumbnails/1234567890_abc123.jpg"),
+     *                     @OA\Property(property="subject_id", type="integer", example=1),
+     *                     @OA\Property(property="price", type="number", format="float", example=129.99),
+     *                     @OA\Property(property="old_price", type="number", format="float", example=199.99),
+     *                     @OA\Property(property="is_published", type="boolean", example=true),
+     *                     @OA\Property(property="teacher_id", type="integer", example=10)
+     *                 ),
+     *                 @OA\Property(property="modules_count", type="integer", example=5),
+     *                 @OA\Property(property="videos_queued", type="integer", example=2, description="Number of videos being uploaded in background"),
+     *                 @OA\Property(property="status", type="string", example="Some videos are being processed. Check upload status endpoint.")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="The given data was invalid."),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="title",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The title field is required.")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden - Not the course owner",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Unauthorized to update this course")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Course not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Course not found")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Update failed: Database connection error")
+     *         )
+     *     )
      * )
-     */
+    */
+
     public function update(Request $request, Course $course)
     {
+        // Check authorization
+        if ($course->teacher_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to update this course'
+            ], 403);
+        }
+
         // Validate request
         $validated = $request->validate([
             // Course validation
@@ -1291,6 +1278,7 @@ class CourseController extends Controller
             'modules.*.title' => 'required|string|max:255',
             'modules.*.description' => 'nullable|string',
             'modules.*.order_index' => 'required|integer|min:1',
+            'modules.*.action' => 'nullable|string|in:keep,delete', // New field
 
             // Videos validation
             'modules.*.videos' => 'nullable|array',
@@ -1300,6 +1288,7 @@ class CourseController extends Controller
             'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
             'modules.*.videos.*.file' => 'nullable|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:512000',
             'modules.*.videos.*.is_published' => 'nullable|boolean',
+            'modules.*.videos.*.action' => 'nullable|string|in:keep,update,delete', // New field
         ]);
 
         DB::beginTransaction();
@@ -1307,6 +1296,7 @@ class CourseController extends Controller
         try {
             $course->load('modules.videoLessons');
             $firebaseService = app(FirebaseService::class);
+
             // Update course data
             $course->update([
                 'title' => $validated['title'],
@@ -1314,7 +1304,7 @@ class CourseController extends Controller
                 'subject_id' => $validated['subject_id'],
                 'price' => $validated['price'],
                 'old_price' => $validated['old_price'] ?? null,
-                'is_published' => $validated['is_published'] ?? false,
+                'is_published' => $validated['is_published'] ?? $course->is_published,
             ]);
 
             // Handle thumbnail update
@@ -1331,14 +1321,36 @@ class CourseController extends Controller
             }
 
             $updatedModules = [];
-            $updatedVideos = [];
-            $totalDuration = 0;
+            $queuedVideos = 0;
+            $immediateVideos = 0;
 
-            // Get existing modules & videos for cleanup tracking
+            // Get existing modules for cleanup tracking
             $existingModuleIds = $course->modules->pluck('id')->toArray();
             $keptModuleIds = [];
 
             foreach ($validated['modules'] as $moduleData) {
+                // Check if module should be deleted
+                if (isset($moduleData['action']) && $moduleData['action'] === 'delete') {
+                    if (!empty($moduleData['id'])) {
+                        $moduleToDelete = Module::find($moduleData['id']);
+                        if ($moduleToDelete) {
+                            // Delete all videos in this module
+                            foreach ($moduleToDelete->videoLessons as $video) {
+                                if ($video->video_path) {
+                                    $firebaseService->deleteFile($video->video_path);
+                                }
+                                // Delete temp files if any
+                                if ($video->temp_path && Storage::disk('local')->exists($video->temp_path)) {
+                                    Storage::disk('local')->delete($video->temp_path);
+                                }
+                            }
+                            $moduleToDelete->videoLessons()->delete();
+                            $moduleToDelete->delete();
+                        }
+                    }
+                    continue;
+                }
+
                 // Update or create module
                 if (!empty($moduleData['id'])) {
                     $module = Module::find($moduleData['id']);
@@ -1365,9 +1377,30 @@ class CourseController extends Controller
                     $keptVideoIds = [];
 
                     foreach ($moduleData['videos'] as $videoData) {
+                        $action = $videoData['action'] ?? 'keep';
+
+                        // Delete video
+                        if ($action === 'delete' && !empty($videoData['id'])) {
+                            $videoToDelete = VideoLesson::find($videoData['id']);
+                            if ($videoToDelete) {
+                                // Delete from Firebase
+                                if ($videoToDelete->video_path) {
+                                    $firebaseService->deleteFile($videoToDelete->video_path);
+                                }
+                                // Delete temp files
+                                if ($videoToDelete->temp_path && Storage::disk('local')->exists($videoToDelete->temp_path)) {
+                                    Storage::disk('local')->delete($videoToDelete->temp_path);
+                                }
+                                $videoToDelete->delete();
+                            }
+                            continue;
+                        }
+
+                        // Update existing video
                         if (!empty($videoData['id'])) {
-                            // Update existing video
                             $videoLesson = VideoLesson::find($videoData['id']);
+                            
+                            // Update basic info
                             $videoLesson->update([
                                 'title' => $videoData['title'],
                                 'description' => $videoData['description'] ?? null,
@@ -1375,131 +1408,161 @@ class CourseController extends Controller
                                 'is_published' => $videoData['is_published'] ?? false,
                             ]);
 
-                            // Handle video file update
+                            // Handle video file replacement
                             if (!empty($videoData['file'])) {
-                                // Delete old video from Firebase Storage
+                                $videoFile = $videoData['file'];
+
+                                // Delete old video from Firebase (if exists)
                                 if ($videoLesson->video_path) {
                                     $firebaseService->deleteFile($videoLesson->video_path);
                                 }
 
-                                // Upload new video to Firebase
-                                $videoFile = $videoData['file'];
-                                $uploadResult = $firebaseService->uploadCourseVideo(
-                                    $videoFile,
-                                    $course->id,
-                                    [
-                                        'maxSize' => 500 * 1024 * 1024,
-                                        'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
-                                    ]
-                                );
-
-                                if (!$uploadResult['success']) {
-                                    DB::rollBack();
-                                    return response()->json([
-                                        'success' => false,
-                                        'message' => 'Video upload failed: ' . $uploadResult['error']
-                                    ], 500);
+                                // Delete old temp file (if exists)
+                                if ($videoLesson->temp_path && Storage::disk('local')->exists($videoLesson->temp_path)) {
+                                    Storage::disk('local')->delete($videoLesson->temp_path);
                                 }
 
-                                // Update video with Firebase data
+                                // Save new video temporarily
+                                $tempFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+                                $tempPath = $videoFile->storeAs('temp_videos', $tempFileName, 'local');
+
+                                // Update video with pending status
                                 $videoLesson->update([
-                                    'video_url' => $uploadResult['url'],
-                                    'video_path' => $uploadResult['path'],
-                                    'filename' => $uploadResult['filename'],
-                                    'file_size' => $uploadResult['size'],
-                                    'mime_type' => $uploadResult['mime_type'],
+                                    'filename' => $videoFile->getClientOriginalName(),
+                                    'file_size' => $videoFile->getSize(),
+                                    'mime_type' => $videoFile->getMimeType(),
+                                    'upload_status' => 'pending',
+                                    'temp_path' => $tempPath,
+                                    'video_path' => null,
+                                    'is_published' => false, // Unpublish until upload completes
+                                    'upload_error' => null,
+                                ]);
+
+                                // Queue the upload
+                                UploadVideoToFirebase::dispatch(
+                                    $videoLesson->id,
+                                    $tempPath,
+                                    $course->id
+                                )->onQueue('video-uploads');
+
+                                $queuedVideos++;
+
+                                Log::info('Video replacement queued', [
+                                    'video_lesson_id' => $videoLesson->id,
+                                    'temp_path' => $tempPath
                                 ]);
                             }
+
+                            $keptVideoIds[] = $videoLesson->id;
+
                         } else {
                             // Create new video
-                            $videoFile = $videoData['file'];
-                            
-                            // Upload to Firebase
-                            $uploadResult = $firebaseService->uploadCourseVideo(
-                                $videoFile,
-                                $course->id,
-                                [
-                                    'maxSize' => 500 * 1024 * 1024,
-                                    'allowedMimes' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/avi']
-                                ]
-                            );
-
-                            if (!$uploadResult['success']) {
-                                DB::rollBack();
-                                return response()->json([
-                                    'success' => false,
-                                    'message' => 'Video upload failed: ' . $uploadResult['error']
-                                ], 500);
+                            if (empty($videoData['file'])) {
+                                continue; // Skip if no file provided for new video
                             }
 
+                            $videoFile = $videoData['file'];
+
+                            // Save video temporarily
+                            $tempFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
+                            $tempPath = $videoFile->storeAs('temp_videos', $tempFileName, 'local');
+
+                            // Create video lesson with pending status
                             $videoLesson = VideoLesson::create([
                                 'module_id' => $module->id,
                                 'title' => $videoData['title'],
                                 'description' => $videoData['description'] ?? null,
                                 'duration_hours' => $videoData['duration_hours'] ?? 0,
-                                'video_url' => $uploadResult['url'],
-                                'video_path' => $uploadResult['path'],
-                                'filename' => $uploadResult['filename'],
-                                'file_size' => $uploadResult['size'],
-                                'mime_type' => $uploadResult['mime_type'],
-                                'is_published' => $videoData['is_published'] ?? false,
+                                'filename' => $videoFile->getClientOriginalName(),
+                                'file_size' => $videoFile->getSize(),
+                                'mime_type' => $videoFile->getMimeType(),
+                                'upload_status' => 'pending',
+                                'temp_path' => $tempPath,
+                                'video_path' => null,
+                                'is_published' => false,
+                            ]);
+
+                            // Queue the upload
+                            UploadVideoToFirebase::dispatch(
+                                $videoLesson->id,
+                                $tempPath,
+                                $course->id
+                            )->onQueue('video-uploads');
+
+                            $queuedVideos++;
+                            $keptVideoIds[] = $videoLesson->id;
+
+                            Log::info('New video queued during update', [
+                                'video_lesson_id' => $videoLesson->id,
+                                'temp_path' => $tempPath
                             ]);
                         }
-
-                        $keptVideoIds[] = $videoLesson->id;
-                        $updatedVideos[] = $videoLesson;
-                        $totalDuration += $videoLesson->duration_hours;
                     }
 
-                    // Delete removed videos from database and Firebase Storage
+                    // Delete videos that were not kept (and not explicitly marked for deletion)
                     $videosToDelete = array_diff($existingVideoIds, $keptVideoIds);
                     if (!empty($videosToDelete)) {
                         $deletedVideos = VideoLesson::whereIn('id', $videosToDelete)->get();
                         foreach ($deletedVideos as $video) {
-                            // Delete from Firebase Storage
                             if ($video->video_path) {
                                 $firebaseService->deleteFile($video->video_path);
                             }
-                            // Delete from database
+                            if ($video->temp_path && Storage::disk('local')->exists($video->temp_path)) {
+                                Storage::disk('local')->delete($video->temp_path);
+                            }
                             $video->delete();
                         }
                     }
                 }
             }
 
-            // Delete removed modules (and their videos)
+            // Delete modules that were not kept (and not explicitly marked for deletion)
             $modulesToDelete = array_diff($existingModuleIds, $keptModuleIds);
             if (!empty($modulesToDelete)) {
                 $modules = Module::whereIn('id', $modulesToDelete)->get();
                 foreach ($modules as $mod) {
-                    // Delete all videos in this module from Firebase
                     foreach ($mod->videoLessons as $video) {
                         if ($video->video_path) {
                             $firebaseService->deleteFile($video->video_path);
                         }
+                        if ($video->temp_path && Storage::disk('local')->exists($video->temp_path)) {
+                            Storage::disk('local')->delete($video->temp_path);
+                        }
                     }
-                    // Delete videos from database
                     $mod->videoLessons()->delete();
-                    // Delete module
                     $mod->delete();
                 }
             }
 
             DB::commit();
 
+            $message = 'Course updated successfully.';
+            if ($queuedVideos > 0) {
+                $message .= " {$queuedVideos} video(s) are being uploaded in the background.";
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Course updated successfully',
+                'message' => $message,
                 'data' => [
-                    'course' => $course,
-                    'modules' => $updatedModules,
-                    'videos' => $updatedVideos,
-                    'total_duration' => $totalDuration
+                    'course' => $course->fresh(['modules.videoLessons']),
+                    'modules_count' => count($updatedModules),
+                    'videos_queued' => $queuedVideos,
+                    'status' => $queuedVideos > 0 
+                        ? 'Some videos are being processed. Check upload status endpoint.' 
+                        : 'All changes applied immediately.'
                 ]
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            Log::error('Course update failed', [
+                'course_id' => $course->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Update failed: ' . $e->getMessage(),
@@ -1525,7 +1588,8 @@ class CourseController extends Controller
      *     @OA\Response(response=404, description="Course not found"),
      *     @OA\Response(response=401, description="Unauthorized")
      * )
-     */
+    */
+
     public function destroy(Course $course)
     {
         DB::beginTransaction();

@@ -90,10 +90,7 @@ class AvailableSlotController extends Controller
                 ->where('to_date', '>=', $request->date);
         }
         
-        // For students: only show unbooked slots
-        if (Auth::user()->hasRole('student')) {
-            $query->whereColumn('booked_count', '<', 'max_students');
-        }
+        $query->whereColumn('booked_count', '<', 'max_students');
         
         $slots = $query->orderBy('from_date')
                     ->orderBy('start_time')

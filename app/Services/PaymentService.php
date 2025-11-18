@@ -32,12 +32,6 @@ class PaymentService
                 ],
             ]);
 
-            Log::info('Payment Intent created', [
-                'payment_intent_id' => $paymentIntent->id,
-                'amount' => $amount,
-                'metadata' => $metadata
-            ]);
-
             return [
                 'success' => true,
                 'payment_intent_id' => $paymentIntent->id,
@@ -46,12 +40,6 @@ class PaymentService
             ];
 
         } catch (Exception $e) {
-            Log::error('Payment Intent creation failed', [
-                'error' => $e->getMessage(),
-                'amount' => $amount,
-                'metadata' => $metadata
-            ]);
-
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -75,11 +63,6 @@ class PaymentService
             ];
 
         } catch (Exception $e) {
-            Log::error('Failed to retrieve payment intent', [
-                'payment_intent_id' => $paymentIntentId,
-                'error' => $e->getMessage()
-            ]);
-
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -99,21 +82,10 @@ class PaymentService
                 $paymentIntent->status === 'requires_confirmation') {
                 $paymentIntent->cancel();
                 
-                Log::info('Payment Intent cancelled', [
-                    'payment_intent_id' => $paymentIntentId
-                ]);
-                
                 return true;
             }
-
             return false;
-
         } catch (Exception $e) {
-            Log::error('Failed to cancel payment intent', [
-                'payment_intent_id' => $paymentIntentId,
-                'error' => $e->getMessage()
-            ]);
-
             return false;
         }
     }
@@ -132,22 +104,12 @@ class PaymentService
 
             $refund = \Stripe\Refund::create($refundData);
 
-            Log::info('Payment refunded', [
-                'payment_intent_id' => $paymentIntentId,
-                'refund_id' => $refund->id,
-                'amount' => $amount
-            ]);
-
             return [
                 'success' => true,
                 'refund_id' => $refund->id,
             ];
 
         } catch (Exception $e) {
-            Log::error('Refund failed', [
-                'payment_intent_id' => $paymentIntentId,
-                'error' => $e->getMessage()
-            ]);
 
             return [
                 'success' => false,

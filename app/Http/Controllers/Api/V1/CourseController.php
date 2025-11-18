@@ -321,7 +321,6 @@ class CourseController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Create course payment intent failed: ' . $e->getMessage());
             
             return response()->json([
                 'message' => 'Failed to create payment intent'
@@ -506,10 +505,6 @@ class CourseController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Course purchase confirmation failed: ' . $e->getMessage(), [
-                'course_id' => $validated['course_id'],
-                'payment_intent_id' => $validated['payment_intent_id'] ?? null,
-            ]);
             
             return response()->json([
                 'message' => 'Purchase confirmation failed. Please contact support.'
@@ -913,11 +908,6 @@ class CourseController extends Controller
                         $tempFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
                         $tempPath = $videoFile->storeAs('temp_videos', $tempFileName, 'local');
 
-                        Log::info('Video saved temporarily', [
-                            'temp_path' => $tempPath,
-                            'original_name' => $videoFile->getClientOriginalName()
-                        ]);
-
                         // Create video lesson with pending status
                         $videoLesson = VideoLesson::create([
                             'module_id' => $module->id,
@@ -941,11 +931,6 @@ class CourseController extends Controller
                         )->onQueue('video-uploads');
 
                         $queuedVideos++;
-
-                        Log::info('Video upload queued', [
-                            'video_lesson_id' => $videoLesson->id,
-                            'temp_path' => $tempPath
-                        ]);
                     }
                 }
             }
@@ -966,11 +951,6 @@ class CourseController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             
-            Log::error('Course creation failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Course creation failed: ' . $e->getMessage()
@@ -1446,11 +1426,6 @@ class CourseController extends Controller
                                 )->onQueue('video-uploads');
 
                                 $queuedVideos++;
-
-                                Log::info('Video replacement queued', [
-                                    'video_lesson_id' => $videoLesson->id,
-                                    'temp_path' => $tempPath
-                                ]);
                             }
 
                             $keptVideoIds[] = $videoLesson->id;
@@ -1491,11 +1466,6 @@ class CourseController extends Controller
 
                             $queuedVideos++;
                             $keptVideoIds[] = $videoLesson->id;
-
-                            Log::info('New video queued during update', [
-                                'video_lesson_id' => $videoLesson->id,
-                                'temp_path' => $tempPath
-                            ]);
                         }
                     }
 
@@ -1556,13 +1526,7 @@ class CourseController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
-            Log::error('Course update failed', [
-                'course_id' => $course->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
+        
             return response()->json([
                 'success' => false,
                 'message' => 'Update failed: ' . $e->getMessage(),

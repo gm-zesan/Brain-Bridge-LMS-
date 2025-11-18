@@ -46,11 +46,6 @@ class UploadVideoToFirebase implements ShouldQueue
             // Update status to processing
             $videoLesson->update(['upload_status' => 'processing']);
 
-            Log::info('Starting background video upload', [
-                'video_lesson_id' => $this->videoLessonId,
-                'temp_path' => $this->tempPath
-            ]);
-
             // Get the temporary file
             $tempFilePath = Storage::disk('local')->path($this->tempPath);
 
@@ -96,22 +91,10 @@ class UploadVideoToFirebase implements ShouldQueue
             // Delete temporary file
             Storage::disk('local')->delete($this->tempPath);
 
-            Log::info('Video uploaded successfully', [
-                'video_lesson_id' => $this->videoLessonId,
-                'firebase_path' => $uploadResult['path'],
-                'url' => $uploadResult['url']
-            ]);
-
             // Check if all videos for this course are uploaded
             $this->checkAndPublishCourse();
 
         } catch (Exception $e) {
-            Log::error('Video upload job failed', [
-                'video_lesson_id' => $this->videoLessonId,
-                'temp_path' => $this->tempPath,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
 
             // Update status to failed
             VideoLesson::where('id', $this->videoLessonId)->update([
@@ -129,46 +112,29 @@ class UploadVideoToFirebase implements ShouldQueue
      */
     private function checkAndPublishCourse()
     {
-        try {
-            $videoLesson = VideoLesson::findOrFail($this->videoLessonId);
-            $course = $videoLesson->module->course;
+        $videoLesson = VideoLesson::findOrFail($this->videoLessonId);
+        $course = $videoLesson->module->course;
 
-            // Count total and completed videos
-            $totalVideos = VideoLesson::whereHas('module', function($query) use ($course) {
-                $query->where('course_id', $course->id);
-            })->count();
+        // Count total and completed videos
+        $totalVideos = VideoLesson::whereHas('module', function($query) use ($course) {
+            $query->where('course_id', $course->id);
+        })->count();
 
-            $completedVideos = VideoLesson::whereHas('module', function($query) use ($course) {
-                $query->where('course_id', $course->id);
-            })->where('upload_status', 'completed')->count();
+        $completedVideos = VideoLesson::whereHas('module', function($query) use ($course) {
+            $query->where('course_id', $course->id);
+        })->where('upload_status', 'completed')->count();
 
-            Log::info('Checking course completion', [
-                'course_id' => $course->id,
-                'total_videos' => $totalVideos,
-                'completed_videos' => $completedVideos
+        // If all videos are uploaded, mark course as ready to publish
+        if ($totalVideos === $completedVideos && $totalVideos > 0) {
+            $course->update([
+                'is_published' => true,
+                'published_at' => now(),
             ]);
 
-            // If all videos are uploaded, mark course as ready to publish
-            if ($totalVideos === $completedVideos && $totalVideos > 0) {
-                $course->update([
-                    'is_published' => true,
-                    'published_at' => now(),
-                ]);
-
-                // Also publish all videos
-                VideoLesson::whereHas('module', function($query) use ($course) {
-                    $query->where('course_id', $course->id);
-                })->update(['is_published' => true]);
-
-                Log::info('Course published automatically', [
-                    'course_id' => $course->id
-                ]);
-            }
-
-        } catch (Exception $e) {
-            Log::error('Failed to check course completion', [
-                'error' => $e->getMessage()
-            ]);
+            // Also publish all videos
+            VideoLesson::whereHas('module', function($query) use ($course) {
+                $query->where('course_id', $course->id);
+            })->update(['is_published' => true]);
         }
     }
 
@@ -177,12 +143,6 @@ class UploadVideoToFirebase implements ShouldQueue
      */
     public function failed(Exception $exception)
     {
-        Log::error('Video upload job permanently failed', [
-            'video_lesson_id' => $this->videoLessonId,
-            'temp_path' => $this->tempPath,
-            'error' => $exception->getMessage()
-        ]);
-
         // Update video status
         VideoLesson::where('id', $this->videoLessonId)->update([
             'upload_status' => 'failed',

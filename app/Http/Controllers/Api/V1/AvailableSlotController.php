@@ -277,7 +277,6 @@ class AvailableSlotController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Booking failed: ' . $e->getMessage());
             
             return response()->json([
                 'message' => 'Booking failed. Please try again.'
@@ -457,8 +456,6 @@ class AvailableSlotController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Create booking intent failed: ' . $e->getMessage());
-            
             return response()->json([
                 'message' => 'Failed to create booking intent'
             ], 500);
@@ -703,10 +700,6 @@ class AvailableSlotController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Booking confirmation failed: ' . $e->getMessage(), [
-                'slot_id' => $validated['slot_id'],
-                'payment_intent_id' => $validated['payment_intent_id'] ?? null,
-            ]);
             
             return response()->json([
                 'message' => 'Booking confirmation failed. Please contact support.'
@@ -782,7 +775,6 @@ class AvailableSlotController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Booking cancellation failed: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,

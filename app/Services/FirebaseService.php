@@ -107,14 +107,6 @@ class FirebaseService
                     'error' => 'Invalid file type. Only video files are allowed. Got: ' . $file->getMimeType()
                 ];
             }
-
-            Log::info('Starting video upload', [
-                'course_id' => $courseId,
-                'filename' => $file->getClientOriginalName(),
-                'size_mb' => round($file->getSize() / 1024 / 1024, 2),
-                'mime' => $file->getMimeType()
-            ]);
-
             $bucket = $this->getBucket();
             $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
             $filePath = "courses/{$courseId}/videos/{$fileName}";
@@ -124,17 +116,10 @@ class FirebaseService
             $chunkSize = 5 * 1024 * 1024; // 5MB chunks
 
             if ($fileSize > $chunkSize) {
-                Log::info('Using resumable upload for large file');
                 $url = $this->uploadLargeFile($bucket, $file, $filePath, $courseId);
             } else {
-                Log::info('Using simple upload for small file');
                 $url = $this->uploadSmallFile($bucket, $file, $filePath, $courseId);
             }
-
-            Log::info('Video uploaded successfully', [
-                'path' => $filePath,
-                'url' => $url
-            ]);
 
             return [
                 'success' => true,
@@ -146,12 +131,6 @@ class FirebaseService
             ];
 
         } catch (Exception $e) {
-            Log::error('Video upload failed', [
-                'course_id' => $courseId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -181,8 +160,6 @@ class FirebaseService
                 ]
             );
 
-            Log::info('File uploaded to Firebase', ['path' => $filePath]);
-
             // Make file publicly accessible
             $object->update([
                 'acl' => [],
@@ -200,10 +177,6 @@ class FirebaseService
             return $url;
 
         } catch (Exception $e) {
-            Log::error('Simple upload failed', [
-                'error' => $e->getMessage(),
-                'path' => $filePath
-            ]);
             throw $e;
         }
     }
@@ -231,11 +204,7 @@ class FirebaseService
                 ]
             );
 
-            Log::info('Starting resumable upload', ['path' => $filePath]);
-
             $object = $uploader->upload();
-            
-            Log::info('Resumable upload completed', ['path' => $filePath]);
 
             // Make file publicly accessible
             $object->update([
@@ -254,10 +223,6 @@ class FirebaseService
             return $url;
 
         } catch (Exception $e) {
-            Log::error('Resumable upload failed', [
-                'error' => $e->getMessage(),
-                'path' => $filePath
-            ]);
             throw $e;
         }
     }

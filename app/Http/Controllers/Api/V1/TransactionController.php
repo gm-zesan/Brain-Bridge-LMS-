@@ -108,7 +108,6 @@ class TransactionController extends Controller
                 'transaction' => $transaction
             ]);
         } catch (\Exception $e) {
-            Log::error('Stripe Payment Error: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -148,7 +147,6 @@ class TransactionController extends Controller
                 'transaction' => $transaction
             ]);
         } catch (\Exception $e) {
-            Log::error('Stripe Success Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to verify payment.'], 500);
         }
     }

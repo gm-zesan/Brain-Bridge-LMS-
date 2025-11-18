@@ -13,7 +13,6 @@ class MeetingService
     {
         try {
             if (!$teacher->google_access_token) {
-                Log::warning("Teacher {$teacher->id} has no Google access token");
                 return null;
             }
 
@@ -59,13 +58,6 @@ class MeetingService
                 'meeting_link' => $event->hangoutLink,
             ];
         } catch (Exception $e) {
-            Log::error('Google Meet creation failed', [
-                'teacher_id' => $teacher->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'start_time' => $start->toDateTimeString(),
-                'end_time' => $end->toDateTimeString(),
-            ]);
             return null;
         }
     }
@@ -85,7 +77,6 @@ class MeetingService
             // Handle token refresh if expired
             if ($client->isAccessTokenExpired()) {
                 if (!$teacher->google_refresh_token) {
-                    Log::warning("Teacher {$teacher->id} token expired with no refresh token");
                     return null;
                 }
 
@@ -95,10 +86,6 @@ class MeetingService
 
                 // Check for errors in token refresh
                 if (isset($newToken['error'])) {
-                    Log::error("Token refresh failed for teacher {$teacher->id}", [
-                        'error' => $newToken['error'],
-                        'error_description' => $newToken['error_description'] ?? null
-                    ]);
                     return null;
                 }
 
@@ -110,16 +97,11 @@ class MeetingService
 
                 // Set the new token in the client
                 $client->setAccessToken($newToken['access_token']);
-
-                Log::info("Access token refreshed for teacher {$teacher->id}");
             }
 
             return $client;
 
         } catch (Exception $e) {
-            Log::error("Failed to configure Google Client for teacher {$teacher->id}", [
-                'error' => $e->getMessage()
-            ]);
             return null;
         }
     }

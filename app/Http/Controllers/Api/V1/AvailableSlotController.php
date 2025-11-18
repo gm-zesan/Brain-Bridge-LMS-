@@ -158,21 +158,21 @@ class AvailableSlotController extends Controller
         $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')->findOrFail($id);
         
         // Get all slots of the same teacher within the same date range
-        $allSlotsSamePeriod = AvailableSlot::where('teacher_id', $slot->teacher_id)
-            ->where('from_date', $slot->from_date)
-            ->where('to_date', $slot->to_date)
-            ->orderBy('start_time')
-            ->get(['id', 'start_time', 'end_time', 'booked_count', 'max_students']);
+        // $allSlotsSamePeriod = AvailableSlot::where('teacher_id', $slot->teacher_id)
+        //     ->where('from_date', $slot->from_date)
+        //     ->where('to_date', $slot->to_date)
+        //     ->orderBy('start_time')
+        //     ->get(['id', 'start_time', 'end_time', 'booked_count', 'max_students']);
         
         // Format time slots with availability
-        $formattedSlots = $allSlotsSamePeriod->map(function ($s) {
-            return [
-                'id' => $s->id,
-                'start_time' => date('H:i', strtotime($s->start_time)),
-                'end_time' => date('H:i', strtotime($s->end_time)),
-                'available_seats' => $s->max_students - $s->booked_count,
-            ];
-        });
+        // $formattedSlots = $allSlotsSamePeriod->map(function ($s) {
+        //     return [
+        //         'id' => $s->id,
+        //         'start_time' => date('H:i', strtotime($s->start_time)),
+        //         'end_time' => date('H:i', strtotime($s->end_time)),
+        //         'available_seats' => $s->max_students - $s->booked_count,
+        //     ];
+        // });
         
         return response()->json([
             'id' => $slot->id,
@@ -182,7 +182,8 @@ class AvailableSlotController extends Controller
             'subject_id' => $slot->subject_id,
             'from_date' => $slot->from_date,
             'to_date' => $slot->to_date,
-            'slots' => $formattedSlots,
+            'start_time' => $slot->start_time,
+            'end_time' => $slot->end_time,
             'type' => $slot->type,
             'price' => $slot->price,
             'description' => $slot->description,

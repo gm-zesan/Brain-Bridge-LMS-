@@ -27,6 +27,7 @@ class MeetingService
 
             $event = new GoogleCalendar\Event([
                 'summary' => $topic,
+                'description' => "Online lesson session via Google Meet",
                 'start' => [
                     'dateTime' => $start->toRfc3339String(),
                     'timeZone' => config('app.timezone', 'Asia/Dhaka')
@@ -37,18 +38,20 @@ class MeetingService
                 ],
                 'conferenceData' => [
                     'createRequest' => [
-                        'requestId' => uniqid(),
+                        'requestId' => uniqid('meet_', true),
                         'conferenceSolutionKey' => ['type' => 'hangoutsMeet'],
                     ]
-                ]
+                ],
+                'reminders' => [
+                    'useDefault' => false,
+                    'overrides' => [
+                        ['method' => 'email', 'minutes' => 24 * 60], // 1 day before
+                        ['method' => 'popup', 'minutes' => 30],      // 30 minutes before
+                    ],
+                ],
             ]);
 
             $event = $service->events->insert('primary', $event, ['conferenceDataVersion' => 1]);
-
-            Log::info("Google Meet created for teacher {$teacher->id}", [
-                'event_id' => $event->id,
-                'meeting_link' => $event->hangoutLink
-            ]);
 
             return [
                 'platform' => 'google_meet',

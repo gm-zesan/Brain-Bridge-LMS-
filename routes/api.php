@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Student actions
     Route::post('/slot/bookings/intent', [AvailableSlotController::class, 'createBookingIntent']);
     Route::post('/slot/bookings/confirm', [AvailableSlotController::class, 'confirmBooking']);
+    Route::post('/slot/bookings/{sessionId}/cancel', [AvailableSlotController::class, 'cancelBooking']);
 
 
     // Lesson Sessions booking

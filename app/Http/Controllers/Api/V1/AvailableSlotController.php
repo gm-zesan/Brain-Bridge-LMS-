@@ -297,12 +297,18 @@ class AvailableSlotController extends Controller
      *         required=true,
      *         description="Slot ID to book",
      *         @OA\JsonContent(
-     *             required={"slot_id"},
+     *             required={"slot_id", "scheduled_date"},
      *             @OA\Property(
      *                 property="slot_id",
      *                 type="integer",
      *                 description="ID of the available slot to book",
      *                 example=1
+     *             )
+     *             @OA\Property(
+     *                 property="scheduled_date",
+     *                 type="date",
+     *                 description="Scheduled date for the slot booking",
+     *                 example="2024-12-01"
      *             )
      *         )
      *     ),
@@ -378,12 +384,12 @@ class AvailableSlotController extends Controller
     {
         $validated = $request->validate([
             'slot_id' => 'required|exists:available_slots,id',
+            'scheduled_date' => 'required|date',
         ]);
 
         try {
             $slot = AvailableSlot::with('teacher', 'subject')
                 ->findOrFail($validated['slot_id']);
-
             // Check availability (no lock needed yet, just checking)
             if ($slot->booked_count >= $slot->max_students) {
                 return response()->json(['message' => 'This slot is already full'], 400);
@@ -401,7 +407,14 @@ class AvailableSlotController extends Controller
                 return response()->json([
                     'success' => true,
                     'requires_payment' => false,
-                    'message' => 'This is a free session',
+                    'message' => 'This is a free session. Proceed to confirm booking.',
+                    'slot' => [
+                        'id' => $slot->id,
+                        'title' => $slot->title,
+                        'teacher' => $slot->teacher->name,
+                        'start_time' => $slot->start_time,
+                        'end_time' => $slot->end_time,
+                    ]
                 ]);
             }
 
@@ -434,6 +447,7 @@ class AvailableSlotController extends Controller
                     'id' => $slot->id,
                     'subject' => $slot->subject->name ?? 'Session',
                     'teacher' => $slot->teacher->name,
+                    'scheduled_date' => $validated['scheduled_date'],
                     'start_time' => $slot->start_time,
                     'end_time' => $slot->end_time,
                     'price' => $slot->price,
@@ -559,14 +573,14 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
     
     public function confirmBooking(Request $request)
     {
         $validated = $request->validate([
             'slot_id' => 'required|exists:available_slots,id',
-            'scheduled_date' => 'required',
-            'payment_intent_id' => 'nullable|string', // nullable for free sessions
+            'scheduled_date' => 'required|date',
+            'payment_intent_id' => 'nullable|string', // Required for paid slots
         ]);
 
         DB::beginTransaction();
@@ -607,7 +621,10 @@ class AvailableSlotController extends Controller
 
                 if (!$paymentResult['success']) {
                     DB::rollBack();
-                    return response()->json(['message' => 'Failed to verify payment'], 400);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to verify payment'
+                    ], 400);
                 }
 
                 if ($paymentResult['status'] !== 'succeeded') {
@@ -629,7 +646,7 @@ class AvailableSlotController extends Controller
                 'teacher_id' => $slot->teacher_id,
                 'student_id' => Auth::id(),
                 'subject_id' => $slot->subject_id,
-                'scheduled_date' => $request->scheduled_date,
+                'scheduled_date' => $validated['scheduled_date'],
                 'scheduled_start_time' => $slot->start_time,
                 'scheduled_end_time' => $slot->end_time,
                 'session_type' => $slot->type,
@@ -646,8 +663,8 @@ class AvailableSlotController extends Controller
             // Create Google Meet
             $meeting = $this->meetingService->createGoogleMeet(
                 $slot->teacher,
-                Carbon::parse($slot->start_time),
-                Carbon::parse($slot->end_time),
+                Carbon::parse($validated['scheduled_date'] . ' ' . $slot->start_time),
+                Carbon::parse($validated['scheduled_date'] . ' ' . $slot->end_time),  
                 'Lesson: ' . ($slot->subject->name ?? 'Session')
             );
 
@@ -691,6 +708,83 @@ class AvailableSlotController extends Controller
             
             return response()->json([
                 'message' => 'Booking confirmation failed. Please contact support.'
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Cancel a booking
+     */
+    public function cancelBooking(Request $request, $sessionId)
+    {
+        try {
+            $session = LessonSession::with('slot')->findOrFail($sessionId);
+
+            // Check authorization
+            if ($session->student_id !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
+
+            // Check if can be cancelled (at least 24 hours before)
+            if ($session->scheduled_start_time->diffInHours(now()) < 24) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bookings can only be cancelled at least 24 hours in advance'
+                ], 400);
+            }
+
+            // Check if already cancelled or completed
+            if (in_array($session->status, ['cancelled', 'completed'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This booking cannot be cancelled'
+                ], 400);
+            }
+
+            DB::beginTransaction();
+
+            // Process refund if paid
+            if ($session->payment_status === 'paid' && $session->payment_intent_id) {
+                $refund = $this->paymentService->refundPayment($session->payment_intent_id);
+                
+                if ($refund['success']) {
+                    $session->update([
+                        'payment_status' => 'refunded',
+                        'refund_id' => $refund['refund_id'],
+                        'refunded_at' => now(),
+                    ]);
+                }
+            }
+
+            // Update session status
+            $session->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'cancellation_reason' => $request->input('reason', 'Cancelled by student'),
+            ]);
+
+            // Decrement slot booked count
+            $session->slot->decrement('booked_count');
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking cancelled successfully',
+                'refund_status' => $session->payment_status
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Booking cancellation failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to cancel booking'
             ], 500);
         }
     }

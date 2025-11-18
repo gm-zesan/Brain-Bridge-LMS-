@@ -75,6 +75,7 @@ class AvailableSlotController extends Controller
      *     )
      * )
      */
+
     public function index(Request $request)
     {
         $query = AvailableSlot::with('teacher:id,name,email', 'subject:id,name');
@@ -84,36 +85,39 @@ class AvailableSlotController extends Controller
             $query->where('teacher_id', $request->teacher_id);
         }
         
-        // Filter by date - check if the date falls within the slot's date range
+        // Filter by date
         if ($request->filled('date')) {
             $query->where('from_date', '<=', $request->date)
                 ->where('to_date', '>=', $request->date);
         }
         
         $query->whereColumn('booked_count', '<', 'max_students');
-        
-        $slots = $query->orderBy('from_date')
-                    ->orderBy('start_time')
-                    ->get()
-                    ->map(function ($slot) {
-                        return [
-                            'id' => $slot->id,
-                            'title' => $slot->title,
-                            'teacher' => $slot->teacher,
-                            'subject' => $slot->subject,
-                            'from_date' => $slot->from_date,
-                            'to_date' => $slot->to_date,
-                            'time' => date('g:i A', strtotime($slot->start_time)) . ' - ' . date('g:i A', strtotime($slot->end_time)),
-                            'available_seats' => $slot->max_students - $slot->booked_count,
-                            'type' => $slot->type,
-                            'price' => $slot->price,
-                        ];
-                    });
-        
+
+        // Pagination
+        $slots = $query->orderBy('id', 'desc')
+                        ->paginate($request->get('per_page', 10));
+
+        // Transform only the collection
+        $slots->getCollection()->transform(function ($slot) {
+            return [
+                'id' => $slot->id,
+                'title' => $slot->title,
+                'teacher' => $slot->teacher,
+                'subject' => $slot->subject,
+                'from_date' => $slot->from_date,
+                'to_date' => $slot->to_date,
+                'time' => date('g:i A', strtotime($slot->start_time)) . ' - ' . date('g:i A', strtotime($slot->end_time)),
+                'available_seats' => $slot->max_students - $slot->booked_count,
+                'type' => $slot->type,
+                'price' => $slot->price,
+            ];
+        });
+
         return response()->json([
             'slots' => $slots
         ], 200);
     }
+
 
 
     /**

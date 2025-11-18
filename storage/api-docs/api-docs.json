@@ -311,19 +311,26 @@
                 "description": "Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
                 "operationId": "createBookingIntent",
                 "requestBody": {
-                    "description": "Slot ID to book",
+                    "description": "Slot ID and schedule date for booking",
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "slot_id"
+                                    "slot_id",
+                                    "scheduled_date"
                                 ],
                                 "properties": {
                                     "slot_id": {
                                         "description": "ID of the available slot to book",
                                         "type": "integer",
                                         "example": 1
+                                    },
+                                    "scheduled_date": {
+                                        "description": "Date on which the session will be booked (must be within slot range)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-11-20"
                                     }
                                 },
                                 "type": "object"

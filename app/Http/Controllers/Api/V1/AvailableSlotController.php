@@ -295,7 +295,7 @@ class AvailableSlotController extends Controller
      *     tags={"Available Slots"},
      *     @OA\RequestBody(
      *         required=true,
-     *         description="Slot ID to book",
+     *         description="Slot ID and schedule date for booking",
      *         @OA\JsonContent(
      *             required={"slot_id", "scheduled_date"},
      *             @OA\Property(
@@ -303,12 +303,13 @@ class AvailableSlotController extends Controller
      *                 type="integer",
      *                 description="ID of the available slot to book",
      *                 example=1
-     *             )
+     *             ),
      *             @OA\Property(
      *                 property="scheduled_date",
-     *                 type="date",
-     *                 description="Scheduled date for the slot booking",
-     *                 example="2024-12-01"
+     *                 type="string",
+     *                 format="date",
+     *                 description="Date on which the session will be booked (must be within slot range)",
+     *                 example="2025-11-20"
      *             )
      *         )
      *     ),
@@ -379,7 +380,8 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
+
     public function createBookingIntent(Request $request)
     {
         $validated = $request->validate([

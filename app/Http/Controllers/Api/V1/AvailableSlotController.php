@@ -385,7 +385,7 @@ class AvailableSlotController extends Controller
     {
         $validated = $request->validate([
             'slot_id' => 'required|exists:available_slots,id',
-            'scheduled_date' => 'required|date',
+            'scheduled_date' => 'required',
         ]);
 
         try {
@@ -578,7 +578,7 @@ class AvailableSlotController extends Controller
     {
         $validated = $request->validate([
             'slot_id' => 'required|exists:available_slots,id',
-            'scheduled_date' => 'required|date',
+            'scheduled_date' => 'required',
             'payment_intent_id' => 'nullable|string', // Required for paid slots
         ]);
 

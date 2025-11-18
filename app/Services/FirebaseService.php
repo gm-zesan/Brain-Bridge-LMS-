@@ -37,26 +37,8 @@ class FirebaseService
 
         $bucketName = config('services.firebase.storage_bucket', 'brainbridge-storage.firebasestorage.app');
 
-        try {
-            $this->storage = $factory->createStorage();
-            $this->bucket = $this->storage->getBucket($bucketName);
-            
-            // Test bucket access
-            if (!$this->bucket->exists()) {
-                throw new Exception("Bucket does not exist: {$bucketName}");
-            }
-            
-            Log::info('Firebase Storage bucket initialized successfully', [
-                'bucket' => $bucketName
-            ]);
-            
-        } catch (Exception $e) {
-            Log::error('Firebase Storage initialization failed', [
-                'bucket' => $bucketName,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
+        $this->storage = $factory->createStorage();
+        $this->bucket = $this->storage->getBucket($bucketName);
 
         $this->initialized = true;
     }

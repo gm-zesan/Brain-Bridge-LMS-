@@ -23,11 +23,6 @@ return new class extends Migration
             $table->string('mime_type')->nullable();
             $table->string('filename')->nullable();
             $table->boolean('is_published')->default(true);
-            
-            $table->string('upload_status')->default('pending'); // pending, processing, completed, failed
-            $table->text('upload_error')->nullable();
-            $table->string('temp_path')->nullable();
-            $table->timestamp('uploaded_at')->nullable();
             $table->timestamps();
         });
     }

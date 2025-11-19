@@ -189,7 +189,7 @@ class CourseController extends Controller
     /**
      * @OA\Post(
      *     path="/api/courses/payment-intent",
-     *     tags={"Course Payment"},
+     *     tags={"Courses"},
      *     summary="Create payment intent for course purchase",
      *     description="Creates a Stripe payment intent for purchasing a course. Returns payment details or indicates if the course is free.",
      *     
@@ -334,7 +334,7 @@ class CourseController extends Controller
     /**
      * @OA\Post(
      *     path="/api/courses/confirm-purchase",
-     *     tags={"Course Payment"},
+     *     tags={"Courses"},
      *     summary="Confirm course purchase",
      *     description="Confirms the course purchase after payment verification. Creates enrollment record and sends confirmation emails to both student and teacher.",
      *     

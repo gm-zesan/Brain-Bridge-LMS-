@@ -162,14 +162,9 @@ class CourseController extends Controller
      * )
     */
 
-    public function courseDetails(Course $course)
+    public function courseDetails($id)
     {
-        if (!$course) {
-            return response()->json(['message' => 'Course not found'], 404);
-        }
-        
-        $course->load('subject', 'teacher', 'modules', 'modules.videoLessons');
-
+        $course = Course::with('subject', 'teacher', 'modules', 'modules.videoLessons')->find($id);
         $course->modules->transform(function ($module) {
             $module->videoLessons->transform(function ($video, $index) {
                 $video->is_accessible = $index === 0;

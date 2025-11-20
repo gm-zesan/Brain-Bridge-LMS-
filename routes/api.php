@@ -35,6 +35,9 @@ Route::post('/login', [FirebaseAuthController::class, 'login']);
 Route::post('/password/reset', [FirebaseAuthController::class, 'resetPassword']);
 Route::post('/google/login', [FirebaseAuthController::class, 'googleLogin']);
 
+Route::apiResource('subjects', SubjectController::class)->only(['index']);
+Route::apiResource('skills', SkillController::class)->only(['index']);
+
 
 // all courses 
 Route::get('public-courses', [CourseController::class, 'allCourses']);
@@ -59,8 +62,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('teacher-levels', TeacherLevelController::class);
     Route::apiResource('teachers', TeacherController::class)->except(['store']);
-    Route::apiResource('subjects', SubjectController::class);
-    Route::apiResource('skills', SkillController::class);
+    Route::apiResource('subjects', SubjectController::class)->except(['index']);
+    Route::apiResource('skills', SkillController::class)->except(['index']);
     
     
     Route::apiResource('courses', CourseController::class);

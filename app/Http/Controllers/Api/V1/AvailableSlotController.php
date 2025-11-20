@@ -605,25 +605,34 @@ class AvailableSlotController extends Controller
                 $amountPaid = $slot->price;
             }
 
-            // Create lesson session
-            $session = LessonSession::create([
+            $data = [
                 'slot_id' => $slot->id,
                 'teacher_id' => $slot->teacher_id,
                 'student_id' => Auth::id(),
                 'subject_id' => $slot->subject_id,
+
+                // date + time merged properly
                 'scheduled_date' => $validated['scheduled_date'],
-                'scheduled_start_time' => $slot->start_time,
-                'scheduled_end_time' => $slot->end_time,
+                'scheduled_start_time' => $validated['scheduled_date'] . ' ' . $slot->start_time,
+                'scheduled_end_time' => $validated['scheduled_date'] . ' ' . $slot->end_time,
+
                 'session_type' => $slot->type,
                 'status' => 'scheduled',
-                'price' => $slot->price ?? 0,
+
+                'price' => (float) $slot->price,
                 'payment_status' => $paymentStatus,
                 'payment_intent_id' => $paymentIntentId,
                 'payment_method' => $paymentIntentId ? 'stripe' : null,
-                'amount_paid' => $amountPaid,
+
+                'amount_paid' => (float) $amountPaid,
                 'currency' => 'usd',
-                'paid_at' => $paymentStatus === 'paid' ? now() : null,
-            ]);
+
+                'paid_at' => $paymentStatus === 'paid' ? now()->toDateTimeString() : null,
+            ];
+
+
+            // Create lesson session
+            $session = LessonSession::create($data);
 
 
             // Create Google Meet

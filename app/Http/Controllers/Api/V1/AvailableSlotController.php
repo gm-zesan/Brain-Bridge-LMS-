@@ -590,20 +590,6 @@ class AvailableSlotController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // Re-check availability
-            if ($slot->booked_count >= $slot->max_students) {
-                DB::rollBack();
-                return response()->json(['message' => 'This slot is already full'], 400);
-            }
-
-            // Re-check duplicate booking
-            if (LessonSession::where('slot_id', $slot->id)
-                    ->where('student_id', Auth::id())
-                    ->exists()) {
-                DB::rollBack();
-                return response()->json(['message' => 'You already booked this slot'], 400);
-            }
-
             // Verify payment if required
             $paymentStatus = 'free';
             $paymentIntentId = null;
@@ -642,6 +628,7 @@ class AvailableSlotController extends Controller
                 'currency' => 'usd',
                 'paid_at' => $paymentStatus === 'paid' ? now() : null,
             ]);
+            
 
             // Create Google Meet
             $meeting = $this->meetingService->createGoogleMeet(
@@ -668,8 +655,8 @@ class AvailableSlotController extends Controller
             DB::commit();
 
             // Send emails AFTER commit
-            Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
-            Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
+            // Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
+            // Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
 
             return response()->json([
                 'success' => true,

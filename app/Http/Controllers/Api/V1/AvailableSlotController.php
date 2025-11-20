@@ -583,7 +583,7 @@ class AvailableSlotController extends Controller
         ]);
 
         DB::beginTransaction();
-        try {
+        // try {
             // Lock the slot to prevent race conditions
             $slot = AvailableSlot::where('id', $validated['slot_id'])
                 ->with('teacher', 'subject')
@@ -617,22 +617,6 @@ class AvailableSlotController extends Controller
 
                 // Verify payment with Stripe
                 $paymentResult = $this->paymentService->getPaymentIntent($validated['payment_intent_id']);
-
-                if (!$paymentResult['success']) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to verify payment'
-                    ], 400);
-                }
-
-                if ($paymentResult['status'] !== 'succeeded') {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Payment not completed',
-                        'payment_status' => $paymentResult['status']
-                    ], 400);
-                }
 
                 $paymentStatus = 'paid';
                 $paymentIntentId = $validated['payment_intent_id'];
@@ -698,13 +682,13 @@ class AvailableSlotController extends Controller
                 ]
             ]);
 
-        } catch (\Exception $e) {
-            DB::rollBack();
+        // } catch (\Exception $e) {
+        //     DB::rollBack();
             
-            return response()->json([
-                'message' => 'Booking confirmation failed. Please contact support.'
-            ], 500);
-        }
+        //     return response()->json([
+        //         'message' => 'Booking confirmation failed. Please contact support.'
+        //     ], 500);
+        // }
     }
 
 

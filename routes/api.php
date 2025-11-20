@@ -47,6 +47,7 @@ Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
+    
     Route::get('/me', [FirebaseAuthController::class, 'me']);
     Route::post('/logout', [FirebaseAuthController::class, 'logout']);
     Route::delete('/delete', [FirebaseAuthController::class, 'destroy']);
@@ -90,6 +91,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/lesson-sessions', [LessonSessionController::class, 'store']);
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+    Route::get('/auth/google/status', [GoogleAuthController::class, 'status']);
+    Route::post('/auth/google/disconnect', [GoogleAuthController::class, 'disconnect']);
+
 
 
     // Transaction Routes

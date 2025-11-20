@@ -29,6 +29,10 @@ class LessonSession extends Model
         'paid_at',
     ];
 
+    protected $casts = [
+        'paid_at' => 'datetime',
+    ];
+
     public function slot()
     {
         return $this->belongsTo(AvailableSlot::class, 'slot_id');

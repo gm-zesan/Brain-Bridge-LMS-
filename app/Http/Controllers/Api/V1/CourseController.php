@@ -492,6 +492,87 @@ class CourseController extends Controller
 
     /**
      * @OA\Get(
+     *     path="/api/student/enrolled-courses",
+     *     tags={"Courses"},
+     *     summary="Get all courses the authenticated student is enrolled in",
+     *     @OA\Response(response=200, description="List of enrolled courses retrieved successfully")
+     * )
+    */
+    public function enrolledCourses()
+    {
+        $enrollments = CourseEnrollment::with(['course.subject', 'course.teacher'])
+            ->where('student_id', Auth::id())
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $enrollments,
+        ], 200);
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/student/enrolled-courses/{course_id}",
+     *     tags={"Courses"},
+     *     summary="Get details of a specific enrolled course for the authenticated student",
+     *     @OA\Parameter(
+     *         name="course_id",
+     *         in="path",
+     *         required=true,
+     *         description="Course ID",
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Enrolled course details retrieved successfully"),
+     *     @OA\Response(response=404, description="Enrollment not found")
+     * )
+    */
+    public function enrolledCourseDetails(Course $course)
+    {
+        $enrollment = CourseEnrollment::with(['course.subject', 'course.teacher', 'course.modules', 'course.modules.videoLessons'])
+            ->where('student_id', Auth::id())
+            ->where('course_id', $course->id)
+            ->first();
+
+        if (!$enrollment) {
+            return response()->json(['message' => 'Enrollment not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $enrollment,
+        ], 200);
+    }
+
+
+    /**
+     * @OA\Get(
+     *    path="/api/teacher/enrolled-courses",
+     *     tags={"Courses"},
+     *     summary="Get all students enrolled in the authenticated teacher's courses",
+     *     @OA\Response(response=200, description="List of enrolled students retrieved successfully")
+     * )
+    */
+    
+    public function teacherEnrolledCourses()
+    {
+        $enrollments = CourseEnrollment::with(['course.subject', 'student'])
+            ->whereHas('course', function ($query) {
+                $query->where('teacher_id', Auth::id());
+            })
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $enrollments,
+        ], 200);
+    }
+
+
+
+    /**
+     * @OA\Get(
      *     path="/api/courses",
      *     tags={"Courses"},
      *     summary="Get all published courses",

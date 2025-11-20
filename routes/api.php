@@ -99,6 +99,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
+
+    // student enrolled courses
+    Route::get('/student/enrolled-courses', [CourseController::class, 'enrolledCourses']);
+    Route::get('/student/enrolled-courses/{course}', [CourseController::class, 'enrolledCourseDetails']);
+    Route::get('/teacher/enrolled-courses', [CourseController::class, 'teacherEnrolledCourses']);
+
+
+
     // Transaction Routes
     Route::prefix('transactions')->group(function () {
         Route::get('/', [TransactionController::class, 'index']);

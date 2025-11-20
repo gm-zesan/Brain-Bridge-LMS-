@@ -2103,6 +2103,77 @@
                 ]
             }
         },
+        "/api/student/enrolled-courses": {
+            "get": {
+                "tags": [
+                    "Courses"
+                ],
+                "summary": "Get all courses the authenticated student is enrolled in",
+                "operationId": "d11dec782f579d4307bea1731feac24e",
+                "responses": {
+                    "200": {
+                        "description": "List of enrolled courses retrieved successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/student/enrolled-courses/{course_id}": {
+            "get": {
+                "tags": [
+                    "Courses"
+                ],
+                "summary": "Get details of a specific enrolled course for the authenticated student",
+                "operationId": "cee41e78f5a75f3dd1c93a95bd654e31",
+                "parameters": [
+                    {
+                        "name": "course_id",
+                        "in": "path",
+                        "description": "Course ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Enrolled course details retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Enrollment not found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/teacher/enrolled-courses": {
+            "get": {
+                "tags": [
+                    "Courses"
+                ],
+                "summary": "Get all students enrolled in the authenticated teacher's courses",
+                "operationId": "b6b7b07eb8683ef2e12fbd772f5217a8",
+                "responses": {
+                    "200": {
+                        "description": "List of enrolled students retrieved successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/courses": {
             "get": {
                 "tags": [
@@ -3387,12 +3458,7 @@
                     "200": {
                         "description": "Successful operation"
                     }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
+                }
             },
             "post": {
                 "tags": [
@@ -3720,12 +3786,7 @@
                     "200": {
                         "description": "Successful operation"
                     }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
+                }
             },
             "post": {
                 "tags": [

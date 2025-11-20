@@ -600,13 +600,9 @@ class AvailableSlotController extends Controller
                     DB::rollBack();
                     return response()->json(['message' => 'Payment intent ID is required'], 400);
                 }
-
-                // Verify payment with Stripe
-                $paymentResult = $this->paymentService->getPaymentIntent($validated['payment_intent_id']);
-
                 $paymentStatus = 'paid';
                 $paymentIntentId = $validated['payment_intent_id'];
-                $amountPaid = $paymentResult['amount'];
+                $amountPaid = $slot->price;
             }
 
             // Create lesson session
@@ -628,7 +624,7 @@ class AvailableSlotController extends Controller
                 'currency' => 'usd',
                 'paid_at' => $paymentStatus === 'paid' ? now() : null,
             ]);
-            
+
 
             // Create Google Meet
             $meeting = $this->meetingService->createGoogleMeet(

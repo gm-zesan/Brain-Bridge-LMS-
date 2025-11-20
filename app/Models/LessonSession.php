@@ -20,7 +20,13 @@ class LessonSession extends Model
         'meeting_platform',
         'meeting_link',
         'meeting_id',
-        'description'
+        'description',
+        'payment_status',
+        'payment_intent_id',
+        'payment_method',
+        'amount_paid',
+        'currency',
+        'paid_at',
     ];
 
     public function slot()

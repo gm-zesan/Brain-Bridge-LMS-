@@ -167,10 +167,9 @@ class FirebaseAuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        $user = User::with('roles', 'transaction')->find($userId);
-
+        $user = User::with('roles')->find($userId);
         if($user->teacher) {
-            $user->load('teacher', 'teacher.teacherLevel', 'teacher.videoLessons', 'teacher.skills');
+            $user->load('teacher', 'teacher.teacherLevel', 'teacher.skills');
         }
 
         return response()->json(['user' => $user], 200);

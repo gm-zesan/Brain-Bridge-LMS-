@@ -741,6 +741,174 @@
                 ]
             }
         },
+        "/student/booked-slots": {
+            "get": {
+                "tags": [
+                    "Available Slots"
+                ],
+                "summary": "Get list of slots booked by the authenticated student",
+                "operationId": "53f9cbb036d048a2f75e5535ce248830",
+                "responses": {
+                    "200": {
+                        "description": "List of booked slots returned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "slots": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "slot_id": {
+                                                                "type": "integer",
+                                                                "example": 2
+                                                            },
+                                                            "student_id": {
+                                                                "type": "integer",
+                                                                "example": 4
+                                                            },
+                                                            "scheduled_date": {
+                                                                "type": "string",
+                                                                "format": "date",
+                                                                "example": "2025-11-20"
+                                                            },
+                                                            "status": {
+                                                                "type": "string",
+                                                                "example": "scheduled"
+                                                            },
+                                                            "slot": {
+                                                                "properties": {
+                                                                    "id": {
+                                                                        "type": "integer",
+                                                                        "example": 2
+                                                                    },
+                                                                    "title": {
+                                                                        "type": "string",
+                                                                        "example": "Math Class"
+                                                                    },
+                                                                    "type": {
+                                                                        "type": "string",
+                                                                        "example": "one_to_one"
+                                                                    },
+                                                                    "price": {
+                                                                        "type": "number",
+                                                                        "example": 50
+                                                                    },
+                                                                    "teacher": {
+                                                                        "properties": {
+                                                                            "id": {
+                                                                                "type": "integer",
+                                                                                "example": 7
+                                                                            },
+                                                                            "name": {
+                                                                                "type": "string",
+                                                                                "example": "John Doe"
+                                                                            },
+                                                                            "email": {
+                                                                                "type": "string",
+                                                                                "example": "john@example.com"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    },
+                                                                    "subject": {
+                                                                        "properties": {
+                                                                            "id": {
+                                                                                "type": "integer",
+                                                                                "example": 1
+                                                                            },
+                                                                            "name": {
+                                                                                "type": "string",
+                                                                                "example": "Mathematics"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "first_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://localhost/api/student/booked-slots?page=1"
+                                                },
+                                                "from": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "last_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://localhost/api/student/booked-slots?page=3"
+                                                },
+                                                "next_page_url": {
+                                                    "type": "string",
+                                                    "example": null
+                                                },
+                                                "path": {
+                                                    "type": "string",
+                                                    "example": "http://localhost/api/student/booked-slots"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "prev_page_url": {
+                                                    "type": "string",
+                                                    "example": null
+                                                },
+                                                "to": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 27
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/teacher/slots": {
             "get": {
                 "tags": [

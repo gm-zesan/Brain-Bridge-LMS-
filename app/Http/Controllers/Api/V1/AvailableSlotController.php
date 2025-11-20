@@ -74,7 +74,7 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
 
     public function index(Request $request)
     {
@@ -156,7 +156,7 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
     public function show($id)
     {
         $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')->findOrFail($id);
@@ -573,7 +573,7 @@ class AvailableSlotController extends Controller
      *     )
      * )
     */
-    
+
     public function confirmBooking(Request $request)
     {
         $validated = $request->validate([
@@ -783,6 +783,91 @@ class AvailableSlotController extends Controller
         }
     }
 
+
+    /**
+     * @OA\Get(
+     *     path="/student/booked-slots",
+     *     summary="Get list of slots booked by the authenticated student",
+     *     tags={"Available Slots"},
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="List of booked slots returned successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="slots",
+     *                 type="object",
+     *                 @OA\Property(property="current_page", type="integer", example=1),
+     *                 @OA\Property(
+     *                     property="data",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         @OA\Property(property="id", type="integer", example=10),
+     *                         @OA\Property(property="slot_id", type="integer", example=2),
+     *                         @OA\Property(property="student_id", type="integer", example=4),
+     *                         @OA\Property(property="scheduled_date", type="string", format="date", example="2025-11-20"),
+     *                         @OA\Property(property="status", type="string", example="scheduled"),
+     *
+     *                         @OA\Property(
+     *                             property="slot",
+     *                             type="object",
+     *                             @OA\Property(property="id", type="integer", example=2),
+     *                             @OA\Property(property="title", type="string", example="Math Class"),
+     *                             @OA\Property(property="type", type="string", example="one_to_one"),
+     *                             @OA\Property(property="price", type="number", example=50.00),
+     *
+     *                             @OA\Property(
+     *                                 property="teacher",
+     *                                 type="object",
+     *                                 @OA\Property(property="id", type="integer", example=7),
+     *                                 @OA\Property(property="name", type="string", example="John Doe"),
+     *                                 @OA\Property(property="email", type="string", example="john@example.com"),
+     *                             ),
+     *
+     *                             @OA\Property(
+     *                                 property="subject",
+     *                                 type="object",
+     *                                 @OA\Property(property="id", type="integer", example=1),
+     *                                 @OA\Property(property="name", type="string", example="Mathematics"),
+     *                             )
+     *                         )
+     *                     )
+     *                 ),
+     *                 @OA\Property(property="first_page_url", type="string", example="http://localhost/api/student/booked-slots?page=1"),
+     *                 @OA\Property(property="from", type="integer", example=1),
+     *                 @OA\Property(property="last_page", type="integer", example=3),
+     *                 @OA\Property(property="last_page_url", type="string", example="http://localhost/api/student/booked-slots?page=3"),
+     *                 @OA\Property(property="next_page_url", type="string", example=null),
+     *                 @OA\Property(property="path", type="string", example="http://localhost/api/student/booked-slots"),
+     *                 @OA\Property(property="per_page", type="integer", example=10),
+     *                 @OA\Property(property="prev_page_url", type="string", example=null),
+     *                 @OA\Property(property="to", type="integer", example=10),
+     *                 @OA\Property(property="total", type="integer", example=27)
+     *             )
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Unauthenticated.")
+     *         )
+     *     )
+     * )
+    */
+
+    public function studentBookedSlots()
+    {
+        $slots = LessonSession::with('slot.teacher', 'slot.subject')
+            ->where('student_id', Auth::id())
+            ->orderBy('scheduled_date', 'desc')
+            ->paginate(10);
+
+        return response()->json([
+            'slots' => $slots
+        ], 200);
+    }
 
     /**
      * @OA\Post(
@@ -1107,7 +1192,8 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
+
     public function destroy(AvailableSlot $availableSlot)
     {
         if ($availableSlot->teacher_id !== Auth::id()) {
@@ -1135,7 +1221,7 @@ class AvailableSlotController extends Controller
      *         description="Teacher's slots",
      *     )
      * )
-     */
+    */
     public function mySlots()
     {
         $query = AvailableSlot::where('teacher_id', Auth::id())
@@ -1163,7 +1249,7 @@ class AvailableSlotController extends Controller
      *         description="Teacher's slots",
      *     )
      * )
-     */
+    */
 
     public function bookedSlots()
     {

@@ -14,8 +14,8 @@ class CourseSeeder extends Seeder
     public function run(): void
     {
         $courses = array(
-            array('id' => '1','teacher_id' => '4','subject_id' => '12','title' => 'Data Science with Python"','description' => 'From data cleaning to machine learning models','thumbnail_url' => 'thumbnails/1762758606_69118fce0e74a.jpg','old_price' => '600.00','price' => '500.00','is_published' => '1','created_at' => '2025-11-10 07:10:06','updated_at' => '2025-11-10 07:10:06'),
-            array('id' => '3','teacher_id' => '4','subject_id' => '13','title' => 'Full Stack Web Development','description' => 'Full Stack Web Development in JavaScript','thumbnail_url' => 'thumbnails/1762799452_69122f5c83557.jpg','old_price' => '600.00','price' => '300.00','is_published' => '1','created_at' => '2025-11-10 18:30:52','updated_at' => '2025-11-10 18:30:52')
+            array('id' => '1','teacher_id' => '1','subject_id' => '1','title' => 'Full Stack Web Development','description' => 'A complete course on building modern full stack web applications using Laravel and Vue.js.','thumbnail_url' => 'thumbnails/1763636134_691ef3a68a465.png','old_price' => '199.99','price' => '129.99','is_published' => '1','enrollment_count' => '1','processing_status' => 'pending','created_at' => '2025-11-20 10:55:34','updated_at' => '2025-11-20 17:48:40'),
+            array('id' => '3','teacher_id' => '2','subject_id' => '13','title' => 'Dev Ops Mastering','description' => 'DevOps Mastering course video.','thumbnail_url' => NULL,'old_price' => '600.00','price' => '500.00','is_published' => '1','enrollment_count' => '1','processing_status' => 'pending','created_at' => '2025-11-21 04:07:41','updated_at' => '2025-11-21 04:34:06')
         );
 
         foreach ($courses as $course) {

@@ -35,6 +35,7 @@ class UserSeeder extends Seeder
         $teacher->assignRole('teacher');
         Teacher::create([
             'user_id' => $teacher->id,
+            'teacher_level_id' => 1,
             'title' => 'Senior Lecturer',
             'created_at' => '2025-10-21 19:52:55',
             'updated_at' => '2025-10-21 19:52:55',

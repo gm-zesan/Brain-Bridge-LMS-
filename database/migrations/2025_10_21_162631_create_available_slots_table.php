@@ -23,6 +23,7 @@ return new class extends Migration
             $table->date('to_date');
             $table->time('start_time');
             $table->time('end_time');
+            $table->string('meeting_link')->nullable();
             $table->boolean('is_booked')->default(false);
             $table->integer('max_students')->default(1);
             $table->integer('booked_count')->default(0);

@@ -619,6 +619,10 @@ class AvailableSlotController extends Controller
                 'session_type' => $slot->type,
                 'status' => 'scheduled',
 
+                'meeting_platform' => 'google_meet',
+                'meeting_link' => $slot->meeting_link,
+                'meeting_id' => null,
+
                 'price' => (float) $slot->price,
                 'payment_status' => $paymentStatus,
                 'payment_intent_id' => $paymentIntentId,
@@ -636,20 +640,20 @@ class AvailableSlotController extends Controller
 
 
             // Create Google Meet
-            $meeting = $this->meetingService->createGoogleMeet(
-                $slot->teacher,
-                Carbon::parse($validated['scheduled_date'] . ' ' . $slot->start_time),
-                Carbon::parse($validated['scheduled_date'] . ' ' . $slot->end_time),  
-                'Lesson: ' . ($slot->subject->name ?? 'Session')
-            );
+            // $meeting = $this->meetingService->createGoogleMeet(
+            //     $slot->teacher,
+            //     Carbon::parse($validated['scheduled_date'] . ' ' . $slot->start_time),
+            //     Carbon::parse($validated['scheduled_date'] . ' ' . $slot->end_time),  
+            //     'Lesson: ' . ($slot->subject->name ?? 'Session')
+            // );
 
-            if ($meeting) {
-                $session->update([
-                    'meeting_platform' => $meeting['platform'],
-                    'meeting_link' => $meeting['meeting_link'],
-                    'meeting_id' => $meeting['meeting_id'],
-                ]);
-            }
+            // if ($meeting) {
+            //     $session->update([
+            //         'meeting_platform' => $meeting['platform'],
+            //         'meeting_link' => $meeting['meeting_link'],
+            //         'meeting_id' => $meeting['meeting_id'],
+            //     ]);
+            // }
 
             // Update slot
             $slot->increment('booked_count');
@@ -668,7 +672,7 @@ class AvailableSlotController extends Controller
                 'message' => 'Booking confirmed successfully',
                 'data' => [
                     'session_id' => $session->id,
-                    'meeting_link' => $meeting['meeting_link'] ?? null,
+                    'meeting_link' => $slot->meeting_link,
                     'payment_status' => $paymentStatus,
                     'amount_paid' => $amountPaid,
                 ]
@@ -857,15 +861,18 @@ class AvailableSlotController extends Controller
      *             @OA\Property(property="subject_id", type="integer", example=1),
      *             @OA\Property(property="from_date", type="string", format="date"),
      *             @OA\Property(property="to_date", type="string", format="date"),
-     *             @OA\Property(property="slots", type="array",
+     *             @OA\Property(
+     *                 property="slots",
+     *                 type="array",
      *                 @OA\Items(
      *                     @OA\Property(property="start_time", type="string", example="09:00"),
-     *                     @OA\Property(property="end_time", type="string", example="11:00")
+     *                     @OA\Property(property="end_time", type="string", example="11:00"),
+     *                     @OA\Property(property="meeting_link", type="string", example="https://meet.google.com/abc-defg-hij")
      *                 )
      *             ),
      *             @OA\Property(property="type", type="string", enum={"one_to_one","group"}),
      *             @OA\Property(property="price", type="number", example=50),
-     *             @OA\Property(property="max_students", type="integer", example=1,),
+     *             @OA\Property(property="max_students", type="integer", example=1),
      *             @OA\Property(property="description", type="string")
      *         )
      *     ),
@@ -876,24 +883,25 @@ class AvailableSlotController extends Controller
      *             @OA\Property(property="success", type="boolean"),
      *             @OA\Property(property="message", type="string"),
      *             @OA\Property(
-     *                  property="data",
-     *                  type="array",
-     *                  @OA\Items(
-     *                      type="object",
-     *                      @OA\Property(property="id", type="integer"),
-     *                      @OA\Property(property="title", type="string"),
-     *                      @OA\Property(property="teacher_id", type="integer"),
-     *                      @OA\Property(property="subject_id", type="integer"),
-     *                      @OA\Property(property="from_date", type="string", format="date"),
-     *                      @OA\Property(property="to_date", type="string", format="date"),
-     *                      @OA\Property(property="start_time", type="string"),
-     *                      @OA\Property(property="end_time", type="string"),
-     *                      @OA\Property(property="type", type="string"),
-     *                      @OA\Property(property="price", type="number"),
-     *                      @OA\Property(property="description", type="string"),
-     *                      @OA\Property(property="max_students", type="integer")
-     *                  )
-     *              )
+     *                 property="data",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer"),
+     *                     @OA\Property(property="title", type="string"),
+     *                     @OA\Property(property="teacher_id", type="integer"),
+     *                     @OA\Property(property="subject_id", type="integer"),
+     *                     @OA\Property(property="from_date", type="string", format="date"),
+     *                     @OA\Property(property="to_date", type="string", format="date"),
+     *                     @OA\Property(property="start_time", type="string"),
+     *                     @OA\Property(property="end_time", type="string"),
+     *                     @OA\Property(property="meeting_link", type="string"),
+     *                     @OA\Property(property="type", type="string"),
+     *                     @OA\Property(property="price", type="number"),
+     *                     @OA\Property(property="description", type="string"),
+     *                     @OA\Property(property="max_students", type="integer")
+     *                 )
+     *             )
      *         )
      *     )
      * )
@@ -909,6 +917,7 @@ class AvailableSlotController extends Controller
             'slots' => 'required|array|min:1',
             'slots.*.start_time' => 'required|date_format:H:i',
             'slots.*.end_time' => 'required|date_format:H:i|after:slots.*.start_time',
+            'slots.*.meeting_link' => 'required|string',
             'type' => 'required|in:one_to_one,group',
             'price' => 'nullable|numeric|min:0',
             'max_students' => 'required_if:type,group|integer|min:1',
@@ -927,6 +936,7 @@ class AvailableSlotController extends Controller
                 'to_date' => $validated['to_date'],
                 'start_time' => $slot['start_time'],
                 'end_time' => $slot['end_time'],
+                'meeting_link' => $slot['meeting_link'],
                 'type' => $validated['type'],
                 'price' => $validated['price'] ?? 0,
                 'description' => $validated['description'] ?? null,
@@ -1003,6 +1013,12 @@ class AvailableSlotController extends Controller
      *                 example="15:30"
      *             ),
      *             @OA\Property(
+     *                 property="meeting_link",
+     *                 type="string",
+     *                 description="Meeting link URL",
+     *                 example="https://meet.google.com/abc-defg-hij"
+     *             ),
+     *             @OA\Property(
      *                 property="type",
      *                 type="string",
      *                 enum={"one_to_one", "group"},
@@ -1049,6 +1065,7 @@ class AvailableSlotController extends Controller
      *                 @OA\Property(property="to_date", type="string", format="date", example="2024-12-31"),
      *                 @OA\Property(property="start_time", type="string", example="14:00:00"),
      *                 @OA\Property(property="end_time", type="string", example="15:30:00"),
+     *                @OA\Property(property="meeting_link", type="string", example="https://meet.google.com/abc-defg-hij"),
      *                 @OA\Property(property="type", type="string", example="one_to_one"),
      *                 @OA\Property(property="price", type="number", format="float", example=50.00),
      *                 @OA\Property(property="max_students", type="integer", example=5),
@@ -1115,7 +1132,8 @@ class AvailableSlotController extends Controller
      *         )
      *     )
      * )
-     */
+    */
+
     public function update(Request $request, AvailableSlot $availableSlot)
     {
         if ($availableSlot->teacher_id !== Auth::id()) {
@@ -1133,6 +1151,7 @@ class AvailableSlotController extends Controller
             'to_date' => 'sometimes|date|after_or_equal:from_date',
             'start_time' => 'sometimes|date_format:H:i',
             'end_time' => 'sometimes|date_format:H:i|after:start_time',
+            'meeting_link' => 'sometimes|string',
             'type' => 'sometimes|in:one_to_one,group',
             'price' => 'nullable|numeric|min:0',
             'max_students' => 'required|integer|min:1',

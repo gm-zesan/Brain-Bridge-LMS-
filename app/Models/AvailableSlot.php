@@ -17,6 +17,7 @@ class AvailableSlot extends Model
         'to_date',
         'start_time',
         'end_time',
+        'meeting_link',
         'is_booked',
         'max_students',
         'booked_count',

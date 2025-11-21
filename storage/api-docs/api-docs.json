@@ -965,6 +965,10 @@
                                                 "end_time": {
                                                     "type": "string",
                                                     "example": "11:00"
+                                                },
+                                                "meeting_link": {
+                                                    "type": "string",
+                                                    "example": "https://meet.google.com/abc-defg-hij"
                                                 }
                                             },
                                             "type": "object"
@@ -1035,6 +1039,9 @@
                                                         "type": "string"
                                                     },
                                                     "end_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "meeting_link": {
                                                         "type": "string"
                                                     },
                                                     "type": {
@@ -1128,6 +1135,11 @@
                                         "format": "time",
                                         "example": "15:30"
                                     },
+                                    "meeting_link": {
+                                        "description": "Meeting link URL",
+                                        "type": "string",
+                                        "example": "https://meet.google.com/abc-defg-hij"
+                                    },
                                     "type": {
                                         "description": "Session type",
                                         "type": "string",
@@ -1211,6 +1223,10 @@
                                                 "end_time": {
                                                     "type": "string",
                                                     "example": "15:30:00"
+                                                },
+                                                "meeting_link": {
+                                                    "type": "string",
+                                                    "example": "https://meet.google.com/abc-defg-hij"
                                                 },
                                                 "type": {
                                                     "type": "string",

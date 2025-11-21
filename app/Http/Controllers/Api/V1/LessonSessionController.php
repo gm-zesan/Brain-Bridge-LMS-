@@ -32,12 +32,12 @@ class LessonSessionController extends Controller
         $teacher = $slot->teacher;
 
         // 1️⃣ Create meeting automatically
-        $meeting = $this->meetingService->createGoogleMeet(
-            $teacher, 
-            Carbon::parse($slot->start_time),
-            Carbon::parse($slot->end_time),
-            'Lesson: '.$slot->subject->name ?? 'Session'
-        );
+        // $meeting = $this->meetingService->createGoogleMeet(
+        //     $teacher, 
+        //     Carbon::parse($slot->start_time),
+        //     Carbon::parse($slot->end_time),
+        //     'Lesson: '.$slot->subject->name ?? 'Session'
+        // );
         
 
         // 2️⃣ Save session record

@@ -140,12 +140,6 @@ class CourseController extends Controller
             ->latest()
             ->get();
 
-        foreach ($courses as $course) {
-            $allReviews = $course->enrollments->flatMap->reviews;
-            $course->average_rating = round($allReviews->avg('rating'), 2);
-            $course->reviews_count = $allReviews->count();
-        }
-
         return response()->json([
             'success' => true,
             'data' => $courses,

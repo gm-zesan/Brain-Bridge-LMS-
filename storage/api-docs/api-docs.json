@@ -131,7 +131,7 @@
             },
             "put": {
                 "tags": [
-                    "User"
+                    "Authentication"
                 ],
                 "summary": "Update authenticated user's profile",
                 "description": "Update user's profile information. If the user is a teacher, can also update teacher details and skills.",
@@ -4935,10 +4935,6 @@
         {
             "name": "Authentication",
             "description": "Authentication"
-        },
-        {
-            "name": "User",
-            "description": "User"
         },
         {
             "name": "Reviews",

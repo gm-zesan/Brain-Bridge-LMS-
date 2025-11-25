@@ -4248,7 +4248,7 @@
                 ]
             }
         },
-        "/api/teacher-levels/{id}/progress": {
+        "/api/teacher-levels/{teacher}/progress": {
             "get": {
                 "tags": [
                     "Teacher Levels"
@@ -4275,35 +4275,77 @@
                                 "schema": {
                                     "properties": {
                                         "current_level": {
-                                            "type": "string",
-                                            "example": "Silver"
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Silver"
+                                                },
+                                                "benefits": {
+                                                    "type": "string",
+                                                    "example": "+10% Pay"
+                                                }
+                                            },
+                                            "type": "object"
                                         },
                                         "next_level": {
-                                            "type": "string",
-                                            "example": "Gold"
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Gold"
+                                                },
+                                                "benefits": {
+                                                    "type": "string",
+                                                    "example": "+20% Pay"
+                                                }
+                                            },
+                                            "type": "object"
                                         },
                                         "progress_percent": {
                                             "type": "integer",
                                             "example": 62
                                         },
-                                        "details": {
-                                            "type": "object",
-                                            "example": {
-                                                "average_rating": {
-                                                    "current": 4.4,
-                                                    "required": 4.5,
-                                                    "progress_percent": 97
+                                        "is_max_level": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "requirements": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Average Rating"
+                                                    },
+                                                    "key": {
+                                                        "type": "string",
+                                                        "example": "average_rating"
+                                                    },
+                                                    "current": {
+                                                        "type": "number",
+                                                        "example": 4.4
+                                                    },
+                                                    "required": {
+                                                        "type": "number",
+                                                        "example": 4.5
+                                                    },
+                                                    "progress_percent": {
+                                                        "type": "integer",
+                                                        "example": 97
+                                                    },
+                                                    "is_met": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    }
                                                 },
-                                                "five_star_reviews": {
-                                                    "current": 10,
-                                                    "required": 15,
-                                                    "progress_percent": 66
-                                                },
-                                                "streak_good_sessions": {
-                                                    "current": 6,
-                                                    "required": 10,
-                                                    "progress_percent": 60
-                                                }
+                                                "type": "object"
                                             }
                                         },
                                         "message": {

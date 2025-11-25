@@ -15,7 +15,7 @@ class TeacherLevelSeeder extends Seeder
     {
         // Seed default teacher levels
         $levels = [
-            ['id' => 1, 'level_name' => 'Bronze', 'min_rating' => 0, 'benefits' => 'Base Pay'],
+            ['id' => 1, 'level_name' => 'Bronze', 'min_rating' => 0.0, 'benefits' => 'Base Pay'],
             ['id' => 2, 'level_name' => 'Silver', 'min_rating' => 4.3, 'benefits' => '+10% Pay'],
             ['id' => 3, 'level_name' => 'Gold', 'min_rating' => 4.5, 'benefits' => '+20% Pay'],
             ['id' => 4, 'level_name' => 'Platinum', 'min_rating' => 4.6, 'benefits' => '+35% Pay'],

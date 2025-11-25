@@ -34,9 +34,7 @@ class TeacherStatsService
                 break;
             }
         }
-
-
-
+        
         // Get rebook count
         $rebookCount = DB::table('available_slots')
             ->where('teacher_id', $teacherId)

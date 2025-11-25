@@ -170,11 +170,9 @@ class TeacherLevelController extends Controller
     }
 
 
-
-
     /**
      * @OA\Get(
-     *     path="/api/teacher-levels/{id}/progress",
+     *     path="/api/teacher-levels/{teacher}/progress",
      *     operationId="teacherProgress",
      *     tags={"Teacher Levels"},
      *     summary="Get teacher progress towards next level",
@@ -190,78 +188,155 @@ class TeacherLevelController extends Controller
      *         response=200,
      *         description="Progress retrieved successfully",
      *         @OA\JsonContent(
-     *             @OA\Property(property="current_level", type="string", example="Silver"),
-     *             @OA\Property(property="next_level", type="string", example="Gold"),
+     *             @OA\Property(property="current_level", type="object",
+     *                 @OA\Property(property="id", type="integer", example=2),
+     *                 @OA\Property(property="name", type="string", example="Silver"),
+     *                 @OA\Property(property="benefits", type="string", example="+10% Pay")
+     *             ),
+     *             @OA\Property(property="next_level", type="object",
+     *                 @OA\Property(property="id", type="integer", example=3),
+     *                 @OA\Property(property="name", type="string", example="Gold"),
+     *                 @OA\Property(property="benefits", type="string", example="+20% Pay")
+     *             ),
      *             @OA\Property(property="progress_percent", type="integer", example=62),
+     *             @OA\Property(property="is_max_level", type="boolean", example=false),
      *             @OA\Property(
-     *                 property="details",
-     *                 type="object",
-     *                 example={
-     *                     "average_rating": {"current": 4.4, "required": 4.5, "progress_percent": 97},
-     *                     "five_star_reviews": {"current": 10, "required": 15, "progress_percent": 66},
-     *                     "streak_good_sessions": {"current": 6, "required": 10, "progress_percent": 60}
-     *                 }
+     *                 property="requirements",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     @OA\Property(property="name", type="string", example="Average Rating"),
+     *                     @OA\Property(property="key", type="string", example="average_rating"),
+     *                     @OA\Property(property="current", type="number", example=4.4),
+     *                     @OA\Property(property="required", type="number", example=4.5),
+     *                     @OA\Property(property="progress_percent", type="integer", example=97),
+     *                     @OA\Property(property="is_met", type="boolean", example=false)
+     *                 )
      *             ),
      *             @OA\Property(property="message", type="string", example="Progress towards next level")
      *         )
      *     ),
      *     @OA\Response(response=404, description="Teacher not found"),
      * )
-     */
-
+    */
+    
     public function progressToNextLevel(Teacher $teacher)
     {
-        $next = $teacher->teacher_level_id + 1;
+        $currentLevel = $teacher->teacher_level_id;
+        $nextLevelId = $currentLevel + 1;
 
-        if ($next > 5) {
+        // Max level reached
+        if ($nextLevelId > 5) {
             return response()->json([
-                'current_level' => $teacher->teacherLevel->level_name,
-                'next_level' => 'Master',
+                'current_level' => [
+                    'id' => $teacher->teacherLevel->id,
+                    'name' => $teacher->teacherLevel->level_name,
+                    'benefits' => $teacher->teacherLevel->benefits,
+                ],
+                'next_level' => null,
                 'progress_percent' => 100,
-                'details' => [],
-                'message' => 'You are a Master!',
+                'is_max_level' => true,
+                'requirements' => [],
+                'message' => 'Congratulations! You have reached the Master level!',
             ]);
         }
 
-        $requirements = [
-            2 => ['average_rating' => 4.3, 'total_sessions' => 5],
-            3 => ['average_rating' => 4.5, 'five_star_reviews' => 15, 'streak_good_sessions' => 10],
-            4 => ['average_rating' => 4.6, 'total_sessions' => 30, 'rebook_count' => 10],
-            5 => ['average_rating' => 4.7, 'total_sessions' => 50, 'cancelled_sessions' => 0],
-        ];
+        // Get next level requirements
+        $requirements = $this->getLevelRequirements($nextLevelId);
+        
+        // Calculate progress
+        [$overallProgress, $requirementDetails] = $this->calculateProgress($teacher, $requirements);
 
-        $req = $requirements[$next] ?? [];
-        [$progress, $details] = $this->calculateProgress($teacher, $req);
+        // Get next level info
+        $nextLevel = TeacherLevel::find($nextLevelId);
 
         return response()->json([
-            'current_level' => $teacher->teacherLevel->level_name,
-            'next_level' => optional(TeacherLevel::find($next))->level_name ?? 'Master',
-            'progress_percent' => $progress,
-            'details' => $details,
-            'message' => "Progress towards next level",
+            'current_level' => [
+                'id' => $teacher->teacherLevel->id,
+                'name' => $teacher->teacherLevel->level_name,
+                'benefits' => $teacher->teacherLevel->benefits,
+            ],
+            'next_level' => [
+                'id' => $nextLevel->id,
+                'name' => $nextLevel->level_name,
+                'benefits' => $nextLevel->benefits,
+            ],
+            'progress_percent' => $overallProgress,
+            'is_max_level' => false,
+            'requirements' => $requirementDetails,
+            'message' => "Keep up the great work! You're {$overallProgress}% towards {$nextLevel->level_name}",
         ]);
     }
 
-    private function calculateProgress(Teacher $teacher, array $req): array
+    /**
+     * Get requirements for a specific level
+     */
+    private function getLevelRequirements(int $level): array
     {
-        $parts = [];
-        $details = [];
+        $allRequirements = [
+            2 => [ // Silver
+                'average_rating' => ['name' => 'Average Rating', 'value' => 4.3],
+                'total_sessions' => ['name' => 'Total Sessions', 'value' => 5],
+            ],
+            3 => [ // Gold
+                'average_rating' => ['name' => 'Average Rating', 'value' => 4.5],
+                'five_star_reviews' => ['name' => 'Five Star Reviews', 'value' => 15],
+                'streak_good_sessions' => ['name' => 'Good Session Streak', 'value' => 10],
+            ],
+            4 => [ // Platinum
+                'average_rating' => ['name' => 'Average Rating', 'value' => 4.6],
+                'total_sessions' => ['name' => 'Total Sessions', 'value' => 30],
+                'rebook_count' => ['name' => 'Rebook Count', 'value' => 10],
+            ],
+            5 => [ // Master
+                'average_rating' => ['name' => 'Average Rating', 'value' => 4.7],
+                'total_sessions' => ['name' => 'Total Sessions', 'value' => 50],
+                'cancelled_sessions' => ['name' => 'Zero Cancellations', 'value' => 0],
+            ],
+        ];
 
-        foreach ($req as $key => $value) {
-            $current = data_get($teacher, $key, 0);
-            if ($value > 0) {
-                $percent = min(100, ($current / $value) * 100);
-                $parts[] = $percent;
-                $details[$key] = [
-                    'current' => $current,
-                    'required' => $value,
-                    'progress_percent' => intval($percent),
-                ];
-            }
+        return $allRequirements[$level] ?? [];
+    }
+
+    /**
+     * Calculate progress for all requirements
+     */
+    private function calculateProgress(Teacher $teacher, array $requirements): array
+    {
+        if (empty($requirements)) {
+            return [0, []];
         }
 
-        $overall = count($parts) > 0 ? intval(array_sum($parts) / count($parts)) : 0;
+        $progressValues = [];
+        $details = [];
 
-        return [$overall, $details];
+        foreach ($requirements as $key => $requirement) {
+            $current = data_get($teacher, $key, 0);
+            $required = $requirement['value'];
+            
+            // Special handling for cancellations (lower is better)
+            if ($key === 'cancelled_sessions') {
+                $percent = $current <= $required ? 100 : 0;
+                $isMet = $current <= $required;
+            } else {
+                $percent = $required > 0 ? min(100, ($current / $required) * 100) : 0;
+                $isMet = $current >= $required;
+            }
+            
+            $progressValues[] = $percent;
+            
+            $details[] = [
+                'name' => $requirement['name'],
+                'key' => $key,
+                'current' => $current,
+                'required' => $required,
+                'progress_percent' => intval($percent),
+                'is_met' => $isMet,
+            ];
+        }
+
+        $overallProgress = intval(array_sum($progressValues) / count($progressValues));
+
+        return [$overallProgress, $details];
     }
+
 }

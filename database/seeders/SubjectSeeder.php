@@ -35,20 +35,14 @@ class SubjectSeeder extends Seeder
                 'Stage Performance',
             ],
             
-            'Academics & School Success' => [
+            'K-12 Subjects' => [
                 'Math',
                 'English',
                 'Science',
                 'History',
                 'Reading',
                 'Writing & Essays',
-            ],
-            
-            'Test Prep' => [
-                'SAT Preparation',
-                'ACT Preparation',
-                'GRE Preparation',
-                'GMAT Preparation',
+                'Test Prep',
             ],
             
             'College Success' => [
@@ -64,7 +58,6 @@ class SubjectSeeder extends Seeder
                 'Arabic',
                 'French',
                 'Chinese',
-                'English as Second Language',
             ],
             
             'Sports Skills' => [

@@ -128,6 +128,136 @@
                         "bearerAuth": []
                     }
                 ]
+            },
+            "put": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Update authenticated user's profile",
+                "description": "Update user's profile information. If the user is a teacher, can also update teacher details and skills.",
+                "operationId": "9755ac19a0f09c2e47519ef9f1f9cc0d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "john@example.com"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+1234567890"
+                                    },
+                                    "bio": {
+                                        "type": "string",
+                                        "example": "Experienced web developer"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "123 Main Street"
+                                    },
+                                    "profile_picture": {
+                                        "type": "string",
+                                        "example": "https://example.com/profiles/john.jpg"
+                                    },
+                                    "title": {
+                                        "type": "string",
+                                        "example": "Senior Teacher"
+                                    },
+                                    "introduction_video": {
+                                        "type": "string",
+                                        "example": "https://example.com/videos/intro.mp4"
+                                    },
+                                    "base_pay": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 50.5
+                                    },
+                                    "skills": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "skill_id": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "years_of_experience": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile updated successfully"
+                                        },
+                                        "user": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Unauthorized"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/slots": {
@@ -3859,8 +3989,19 @@
                     "Teachers"
                 ],
                 "summary": "Get list of all teachers",
-                "description": "Returns all teachers from the database",
+                "description": "Returns all teachers. You can optionally filter teachers by skill.",
                 "operationId": "getTeachersList",
+                "parameters": [
+                    {
+                        "name": "skill",
+                        "in": "query",
+                        "description": "Filter teachers by skill (e.g., laravel, python)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Successful operation"
@@ -4794,6 +4935,10 @@
         {
             "name": "Authentication",
             "description": "Authentication"
+        },
+        {
+            "name": "User",
+            "description": "User"
         },
         {
             "name": "Reviews",

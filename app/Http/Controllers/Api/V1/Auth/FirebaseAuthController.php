@@ -175,6 +175,138 @@ class FirebaseAuthController extends Controller
         return response()->json(['user' => $user], 200);
     }
 
+
+    /**
+     * @OA\Put(
+     *     path="/api/me",
+     *     tags={"User"},
+     *     summary="Update authenticated user's profile",
+     *     description="Update user's profile information. If the user is a teacher, can also update teacher details and skills.",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string", example="John Doe"),
+     *             @OA\Property(property="email", type="string", example="john@example.com"),
+     *             @OA\Property(property="phone", type="string", example="+1234567890"),
+     *             @OA\Property(property="bio", type="string", example="Experienced web developer"),
+     *             @OA\Property(property="address", type="string", example="123 Main Street"),
+     *             @OA\Property(property="profile_picture", type="string", example="https://example.com/profiles/john.jpg"),
+     *             
+     *             @OA\Property(property="title", type="string", example="Senior Teacher"),
+     *             @OA\Property(property="introduction_video", type="string", example="https://example.com/videos/intro.mp4"),
+     *             @OA\Property(property="base_pay", type="number", format="float", example=50.5),
+     *             
+     *             @OA\Property(
+     *                 property="skills",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     type="object",
+     *                     @OA\Property(property="skill_id", type="integer", example=3),
+     *                     @OA\Property(property="years_of_experience", type="integer", example=5)
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Profile updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Profile updated successfully"),
+     *             @OA\Property(property="user", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="error", type="string", example="Unauthorized")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+    */
+
+    public function updateMe(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $teacher = $user->teacher;
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
+            'phone' => 'sometimes|string|max:25',
+            'bio' => 'sometimes|string',
+            'address' => 'sometimes|string',
+        ]);
+
+        if ($request->hasFile('profile_picture')) {
+            $avatar = $request->file('profile_picture');
+            $avatarName = time() . '_' . uniqid() . '.' . $avatar->getClientOriginalExtension();
+            $avatarPath = $avatar->storeAs('avatars', $avatarName, 'public');
+            $data['profile_picture'] = $avatarPath;
+        }
+
+        $user->update($data);
+
+        if ($teacher) {
+            $teacherData = $request->validate([
+                'title' => 'sometimes|string|max:255',
+                'introduction_video' => 'sometimes|string',
+                'base_pay' => 'sometimes|numeric|min:0',
+
+                'skills' => 'sometimes|array',
+                'skills.*.skill_id' => 'required_with:skills|exists:skills,id',
+                'skills.*.years_of_experience' => 'required_with:skills|numeric|min:0',
+            ]);
+
+            if ($request->hasFile('introduction_video')) {
+                $video = $request->file('introduction_video');
+                $videoName = time() . '_' . uniqid() . '.' . $video->getClientOriginalExtension();
+                $videoPath = $video->storeAs('videos', $videoName, 'public');
+                $teacherData['introduction_video'] = $videoPath;
+            }
+
+            $teacher->update(
+                array_filter($teacherData, fn($value) => !is_null($value))
+            );
+
+            if ($request->has('skills')) {
+                $syncData = [];
+
+                foreach ($request->skills as $skill) {
+                    $syncData[$skill['skill_id']] = [
+                        'years_of_experience' => $skill['years_of_experience']
+                    ];
+                }
+                $teacher->skills()->sync($syncData);
+            }
+            $user->load('teacher', 'teacher.teacherLevel', 'teacher.skills');
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user' => $user
+        ], 200);
+    }
+
+
+
+
+
+
+
+
     public function resetPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [

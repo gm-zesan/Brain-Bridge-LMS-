@@ -30,18 +30,48 @@ class TeacherController extends Controller
      *      operationId="getTeachersList",
      *      tags={"Teachers"},
      *      summary="Get list of all teachers",
-     *      description="Returns all teachers from the database",
+     *      description="Returns all teachers. You can optionally filter teachers by skill.",
+     *
+     *      @OA\Parameter(
+     *          name="skill",
+     *          in="query",
+     *          required=false,
+     *          description="Filter teachers by skill (e.g., laravel, python)",
+     *          @OA\Schema(type="string")
+     *      ),
+     *
      *      @OA\Response(
      *          response=200,
      *          description="Successful operation"
      *      )
      * )
-     */
-    public function index()
+    */
+
+    public function index(Request $request)
     {
-        $teachers = User::role('teacher')->with('teacher')->get();
-        return response()->json($teachers, 200);
+        $skill = $request->query('skill');
+
+        $teachers = User::role('teacher')
+            ->with([
+                'teacher',
+                'teacher.reviews',
+                'teacher.teacherLevel',
+                'teacher.skills',
+            ])
+            ->when($skill, function ($query) use ($skill) {
+                $query->whereHas('teacher', function ($q) use ($skill) {
+                    $q->where('skills', 'LIKE', "%{$skill}%");
+                });
+            })
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $teachers
+        ], 200);
     }
+
+
 
 
     /**

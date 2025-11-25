@@ -37,8 +37,11 @@ class Teacher extends Model
 
     public function skills()
     {
-        return $this->hasMany(TeacherSkill::class);
+        return $this->belongsToMany(Skill::class, 'teacher_skills')
+                    ->withPivot('years_of_experience')
+                    ->withTimestamps();
     }
+
 
     public function availableSlots()
     {

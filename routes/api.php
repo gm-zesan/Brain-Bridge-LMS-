@@ -51,6 +51,8 @@ Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
 Route::middleware('auth:sanctum')->group(function () {
     
     Route::get('/me', [FirebaseAuthController::class, 'me']);
+    Route::put('/me', [FirebaseAuthController::class, 'updateMe']);
+    
     Route::post('/logout', [FirebaseAuthController::class, 'logout']);
     Route::delete('/delete', [FirebaseAuthController::class, 'destroy']);
 

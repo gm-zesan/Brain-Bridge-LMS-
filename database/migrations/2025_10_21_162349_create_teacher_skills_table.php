@@ -15,11 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('skill_id')->constrained('skills')->onDelete('cascade');
-            $table->integer('years_of_experience')->default(0);
-            $table->decimal('hourly_rate', 8, 2)->nullable();
+            $table->float('years_of_experience')->default(0);
             $table->timestamps();
-
-            $table->unique(['teacher_id', 'skill_id']);
         });
     }
 

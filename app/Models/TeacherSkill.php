@@ -10,7 +10,10 @@ class TeacherSkill extends Model
         'teacher_id',
         'skill_id',
         'years_of_experience',
-        'hourly_rate',
+    ];
+
+    protected $casts = [
+        'years_of_experience' => 'float',
     ];
 
     public function teacher()

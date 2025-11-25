@@ -14,6 +14,10 @@ class Teacher extends Model
         'base_pay',
         'total_sessions',
         'average_rating',
+        'five_star_reviews',
+        'streak_good_sessions',
+        'rebook_count',
+        'cancelled_sessions',
     ];
 
     public function user()
@@ -46,5 +50,13 @@ class Teacher extends Model
         return $this->hasMany(LessonSession::class, 'teacher_id');
     }
 
+    public function courses()
+    {
+        return $this->hasMany(Course::class, 'teacher_id');
+    }
 
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'teacher_id');
+    }
 }

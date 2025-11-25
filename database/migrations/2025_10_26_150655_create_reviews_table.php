@@ -13,13 +13,17 @@ return new class extends Migration
     {
         Schema::create('reviews', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('lesson_session_id')->constrained()->onDelete('cascade');
             $table->foreignId('reviewer_id')->constrained('users')->onDelete('cascade');
+            // Optional: which slot (for teacher review)
+            $table->foreignId('slot_id')->nullable()->constrained('available_slots')->onDelete('cascade');
+            $table->foreignId('course_id')->nullable()->constrained('courses')->onDelete('cascade');
+
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
-            $table->unsignedTinyInteger('rating');
+            $table->unsignedTinyInteger('rating')->check('rating >= 1 and rating <= 5');
             $table->text('comment')->nullable();
             $table->timestamps();
         });
+
     }
 
     /**

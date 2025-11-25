@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::create('teacher_levels', function (Blueprint $table) {
             $table->id();
             $table->string('level_name')->unique(); // e.g., Bronze, Silver, Gold, Platinum, Master
-            $table->integer('min_rating')->default(0);
-            $table->integer('max_rating')->default(0);
+            $table->float('min_rating')->default(0); // Minimum average rating required for this level
             $table->longText('benefits')->nullable();
             $table->timestamps();
         });

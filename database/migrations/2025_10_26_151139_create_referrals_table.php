@@ -13,11 +13,9 @@ return new class extends Migration
     {
         Schema::create('referrals', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('referrer_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('referee_id')->constrained('users')->onDelete('cascade');
-            $table->string('referee_email')->nullable();
-            $table->enum('status', ['pending', 'joined', 'rewarded'])->default('pending');
-            $table->decimal('reward_amount', 8, 2)->default(0);
+            $table->foreignId('referrer_id')->constrained('users')->onDelete('cascade'); // (the inviter)
+            $table->foreignId('referee_id')->constrained('users')->onDelete('cascade'); // (who joined using the code)
+            $table->boolean('reward_given')->nullable()->default(false);
             $table->timestamps();
         });
     }

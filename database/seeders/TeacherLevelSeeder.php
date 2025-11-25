@@ -15,36 +15,11 @@ class TeacherLevelSeeder extends Seeder
     {
         // Seed default teacher levels
         $levels = [
-            [
-                'level_name' => 'Bronze',
-                'min_rating' => 0,
-                'max_rating' => 999,
-                'benefits' => 'Basic support and resources.',
-            ],
-            [
-                'level_name' => 'Silver',
-                'min_rating' => 1000,
-                'max_rating' => 1999,
-                'benefits' => 'Priority support and access to advanced resources.',
-            ],
-            [
-                'level_name' => 'Gold',
-                'min_rating' => 2000,
-                'max_rating' => 2999,
-                'benefits' => 'Dedicated support, premium resources, and promotional opportunities.',
-            ],
-            [
-                'level_name' => 'Platinum',
-                'min_rating' => 3000,
-                'max_rating' => 3999,
-                'benefits' => 'All Gold benefits plus exclusive event invitations and higher revenue share.',
-            ],
-            [
-                'level_name' => 'Master',
-                'min_rating' => 4000,
-                'max_rating' => 5000,
-                'benefits' => 'All Platinum benefits plus personal coaching and top-tier promotional features.',
-            ],
+            ['id' => 1, 'level_name' => 'Bronze', 'min_rating' => 0, 'benefits' => 'Base Pay'],
+            ['id' => 2, 'level_name' => 'Silver', 'min_rating' => 4.3, 'benefits' => '+10% Pay'],
+            ['id' => 3, 'level_name' => 'Gold', 'min_rating' => 4.5, 'benefits' => '+20% Pay'],
+            ['id' => 4, 'level_name' => 'Platinum', 'min_rating' => 4.6, 'benefits' => '+35% Pay'],
+            ['id' => 5, 'level_name' => 'Master', 'min_rating' => 4.7, 'benefits' => 'Custom Pay'],
         ];
 
         foreach ($levels as $level) {

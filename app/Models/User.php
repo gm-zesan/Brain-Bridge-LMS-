@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -30,6 +31,10 @@ class User extends Authenticatable
         'address',
         'profile_picture',
         'is_active',
+        'points',
+        'referral_code',
+        'referred_by',
+
     ];
 
     /**
@@ -55,6 +60,22 @@ class User extends Authenticatable
         ];
     }
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::created(function ($user) {
+            do {
+                $code = strtoupper(Str::random(8));
+            } while (User::where('referral_code', $code)->exists());
+
+            $user->referral_code = $code;
+            $user->save();
+        });
+    }
+
+
+
     public function teacher()
     {
         return $this->hasOne(Teacher::class);
@@ -76,4 +97,8 @@ class User extends Authenticatable
         return $this->hasMany(CourseEnrollment::class, 'student_id');
     }
 
+    public function referralsMade()
+    {
+        return $this->hasMany(Referral::class, 'referrer_id');
+    }
 }

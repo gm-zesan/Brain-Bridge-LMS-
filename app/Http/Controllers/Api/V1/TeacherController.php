@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Teacher;
+use App\Models\TeacherLevel;
 use App\Models\User;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
@@ -253,4 +254,5 @@ class TeacherController extends Controller
         return response()->json(['message' => 'Teacher deleted successfully']);
 
     }
+
 }

@@ -9,7 +9,6 @@ class TeacherLevel extends Model
     protected $fillable = [
         'level_name',
         'min_rating',
-        'max_rating',
         'benefits',
     ];
 

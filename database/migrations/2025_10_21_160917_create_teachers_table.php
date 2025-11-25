@@ -19,7 +19,12 @@ return new class extends Migration
             $table->string('introduction_video')->nullable();
             $table->decimal('base_pay', 8, 2)->default(0);
             $table->integer('total_sessions')->default(0);
-            $table->integer('average_rating')->default(0);
+            $table->float('average_rating')->default(0);
+
+            $table->integer('five_star_reviews')->default(0);
+            $table->integer('streak_good_sessions')->default(0); 
+            $table->integer('rebook_count')->default(0); 
+            $table->integer('cancelled_sessions')->default(0);
             $table->timestamps();
         });
     }

@@ -5,7 +5,7 @@ use App\Http\Controllers\Api\V1\AvailableSlotController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Http\Controllers\Api\V1\LessonSessionController;
-use App\Http\Controllers\Api\V1\ModuleController;
+use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SkillController;
 use App\Http\Controllers\Api\V1\StudentController;
 use App\Http\Controllers\Api\V1\SubjectController;
@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\V1\TeacherController;
 use App\Http\Controllers\Api\V1\TeacherLevelController;
 use App\Http\Controllers\Api\V1\TransactionController;
 use App\Http\Controllers\Api\V1\UserController;
-use App\Http\Controllers\Api\V1\VideoLessonController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -61,18 +60,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('students', StudentController::class)->except(['store']);
 
     Route::apiResource('teacher-levels', TeacherLevelController::class);
+    Route::get('/teacher-levels/{teacher}/progress', [TeacherLevelController::class, 'progressToNextLevel']);
+
     Route::apiResource('teachers', TeacherController::class)->except(['store']);
     Route::apiResource('subjects', SubjectController::class)->except(['index']);
     Route::apiResource('skills', SkillController::class)->except(['index']);
     
     
     Route::apiResource('courses', CourseController::class);
-    Route::get('/courses/{course}/upload-status', [CourseController::class, 'getUploadStatus']);
     // Course purchase routes
     Route::post('/courses/payment-intent', [CourseController::class, 'createCoursePaymentIntent']);
     Route::post('/courses/confirm-purchase', [CourseController::class, 'confirmCoursePurchase']);
-    Route::apiResource('modules', ModuleController::class);
-    Route::apiResource('video-lessons', VideoLessonController::class);
 
 
     // available slots
@@ -104,6 +102,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/student/enrolled-courses', [CourseController::class, 'enrolledCourses']);
     Route::get('/student/enrolled-courses/{course}', [CourseController::class, 'enrolledCourseDetails']);
     Route::get('/teacher/enrolled-courses', [CourseController::class, 'teacherEnrolledCourses']);
+
+
+
+    Route::apiResource('reviews', ReviewController::class)->only(['index']);
+    Route::post('/reviews/teacher', [ReviewController::class, 'storeTeacherReview']);
+    Route::post('/reviews/course', [ReviewController::class, 'storeCourseReview']);
 
 
 

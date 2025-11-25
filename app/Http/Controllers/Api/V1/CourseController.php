@@ -61,6 +61,8 @@ class CourseController extends Controller
      *                     @OA\Property(property="thumbnail_url", type="string", example="https://example.com/thumbnails/course1.jpg", nullable=true),
      *                     @OA\Property(property="is_published", type="boolean", example=true),
      *                     @OA\Property(property="enrollment_count", type="integer", example=150),
+     *                    @OA\Property(property="average_rating", type="number", format="float", example=4.5),
+     *                    @OA\Property(property="reviews_count", type="integer", example=45),
      *                     @OA\Property(property="created_at", type="string", format="date-time", example="2024-11-01T10:30:00.000000Z"),
      *                     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-11-16T12:45:00.000000Z"),
      *                     @OA\Property(
@@ -133,10 +135,16 @@ class CourseController extends Controller
 
     public function allCourses()
     {
-        $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons'])
+        $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons','reviews.reviewer:id,name'])
             ->where('is_published', true)
             ->latest()
             ->get();
+
+        foreach ($courses as $course) {
+            $allReviews = $course->enrollments->flatMap->reviews;
+            $course->average_rating = round($allReviews->avg('rating'), 2);
+            $course->reviews_count = $allReviews->count();
+        }
 
         return response()->json([
             'success' => true,
@@ -1003,239 +1011,6 @@ class CourseController extends Controller
                 'message' => 'Course creation failed: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    // public function store(Request $request)
-    // {
-    //     // Validate incoming request
-    //     $validated = $request->validate([
-    //         // Course validation
-    //         'title' => 'required|string|max:255',
-    //         'description' => 'required|string',
-    //         'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120', // 5MB
-    //         'subject_id' => 'required|exists:subjects,id',
-    //         'price' => 'required|numeric|min:0',
-    //         'old_price' => 'nullable|numeric|min:0',
-    //         'is_published' => 'nullable|boolean',
-
-    //         // Modules validation
-    //         'modules' => 'required|array|min:1',
-    //         'modules.*.title' => 'required|string|max:255',
-    //         'modules.*.description' => 'nullable|string',
-    //         'modules.*.order_index' => 'required|integer|min:1',
-
-    //         // Videos validation
-    //         'modules.*.videos' => 'nullable|array',
-    //         'modules.*.videos.*.title' => 'required|string|max:255',
-    //         'modules.*.videos.*.description' => 'nullable|string',
-    //         'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
-    //         'modules.*.videos.*.file' => 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:102400', // 100MB
-    //         'modules.*.videos.*.is_published' => 'nullable|boolean',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         // Prepare course data
-    //         $courseData = [
-    //             'title' => $validated['title'],
-    //             'description' => $validated['description'],
-    //             'subject_id' => $validated['subject_id'],
-    //             'price' => $validated['price'],
-    //             'old_price' => $validated['old_price'] ?? null,
-    //             'is_published' => false, // Keep unpublished until videos upload
-    //             'teacher_id' => Auth::id(),
-    //         ];
-
-    //         // Handle thumbnail upload
-    //         if ($request->hasFile('thumbnail_url')) {
-    //             $thumbnail = $request->file('thumbnail_url');
-    //             $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-    //             $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName);
-    //             $courseData['thumbnail_url'] = 'thumbnails/' . $thumbnailName;
-    //         }
-
-    //         // Create course
-    //         $course = Course::create($courseData);
-
-    //         $createdModules = [];
-    //         $queuedVideos = 0;
-
-    //         // Process modules and videos
-    //         foreach ($validated['modules'] as $moduleData) {
-    //             // Create module
-    //             $module = Module::create([
-    //                 'course_id' => $course->id,
-    //                 'title' => $moduleData['title'],
-    //                 'description' => $moduleData['description'] ?? null,
-    //                 'order_index' => $moduleData['order_index'],
-    //             ]);
-
-    //             $createdModules[] = $module;
-
-    //             // Process videos for this module
-    //             if (!empty($moduleData['videos'])) {
-    //                 foreach ($moduleData['videos'] as $videoData) {
-    //                     $videoFile = $videoData['file'];
-                        
-    //                     // Save video temporarily to local storage
-    //                     $tempFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-    //                     $tempPath = $videoFile->storeAs('temp_videos', $tempFileName, 'local');
-
-    //                     // Create video lesson with pending status
-    //                     $videoLesson = VideoLesson::create([
-    //                         'module_id' => $module->id,
-    //                         'title' => $videoData['title'],
-    //                         'description' => $videoData['description'] ?? null,
-    //                         'duration_hours' => $videoData['duration_hours'] ?? 0,
-    //                         'video_path' => null, // Will be set after upload
-    //                         'filename' => $videoFile->getClientOriginalName(),
-    //                         'file_size' => $videoFile->getSize(),
-    //                         'mime_type' => $videoFile->getMimeType(),
-    //                         'upload_status' => 'pending', // pending, processing, completed, failed
-    //                         'temp_path' => $tempPath, // Store temp path
-    //                         'is_published' => false, // Don't publish until uploaded
-    //                     ]);
-
-    //                     // Queue the video upload job
-    //                     UploadVideoToFirebase::dispatch(
-    //                         $videoLesson->id,
-    //                         $tempPath,
-    //                         $course->id
-    //                     )->onQueue('video-uploads');
-
-    //                     $queuedVideos++;
-    //                 }
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Course created successfully. Videos are being uploaded in the background.',
-    //             'data' => [
-    //                 'course' => $course->fresh(),
-    //                 'modules_count' => count($createdModules),
-    //                 'videos_queued' => $queuedVideos,
-    //                 'status' => 'Videos are being processed. Check back in a few minutes.'
-    //             ]
-    //         ], 201);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-            
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Course creation failed: ' . $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
-
-    /**
-     * @OA\Get(
-     *     path="/api/courses/{courseId}/upload-status",
-     *     tags={"Course Management"},
-     *     summary="Get video upload status for a course",
-     *     description="Returns detailed upload status information for all videos in a course including completion progress, processing status, and failure counts. Useful for tracking bulk video upload progress.",
-     *     @OA\Parameter(
-     *         name="courseId",
-     *         in="path",
-     *         required=true,
-     *         description="ID of the course to check upload status",
-     *         @OA\Schema(type="integer", example=1)
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Upload status retrieved successfully",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(
-     *                 property="data",
-     *                 type="object",
-     *                 @OA\Property(property="course_id", type="integer", example=1, description="ID of the course"),
-     *                 @OA\Property(property="total_videos", type="integer", example=15, description="Total number of videos in the course"),
-     *                 @OA\Property(property="completed", type="integer", example=12, description="Number of videos successfully uploaded"),
-     *                 @OA\Property(property="processing", type="integer", example=2, description="Number of videos currently being processed"),
-     *                 @OA\Property(property="failed", type="integer", example=1, description="Number of videos that failed to upload"),
-     *                 @OA\Property(property="progress_percentage", type="number", format="float", example=80.00, description="Percentage of videos completed (0-100)"),
-     *                 @OA\Property(property="is_complete", type="boolean", example=false, description="Whether all videos have been successfully uploaded")
-     *             )
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=401,
-     *         description="Unauthenticated",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Unauthenticated")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=403,
-     *         description="Forbidden - User doesn't have access to this course",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="You don't have permission to access this course")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=404,
-     *         description="Course not found",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Course not found")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=500,
-     *         description="Server error",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Failed to retrieve upload status")
-     *         )
-     *     )
-     * )
-    */
-    
-    public function getUploadStatus($courseId)
-    {
-        $course = Course::with(['modules.videoLessons'])->findOrFail($courseId);
-
-        $totalVideos = 0;
-        $completedVideos = 0;
-        $failedVideos = 0;
-        $processingVideos = 0;
-
-        foreach ($course->modules as $module) {
-            foreach ($module->videoLessons as $video) {
-                $totalVideos++;
-                
-                switch ($video->upload_status) {
-                    case 'completed':
-                        $completedVideos++;
-                        break;
-                    case 'failed':
-                        $failedVideos++;
-                        break;
-                    case 'processing':
-                        $processingVideos++;
-                        break;
-                }
-            }
-        }
-
-        $progress = $totalVideos > 0 ? round(($completedVideos / $totalVideos) * 100, 2) : 0;
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'course_id' => $course->id,
-                'total_videos' => $totalVideos,
-                'completed' => $completedVideos,
-                'processing' => $processingVideos,
-                'failed' => $failedVideos,
-                'progress_percentage' => $progress,
-                'is_complete' => $completedVideos === $totalVideos && $totalVideos > 0,
-            ]
-        ]);
     }
 
 

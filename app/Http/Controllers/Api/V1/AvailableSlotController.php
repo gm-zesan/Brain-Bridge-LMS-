@@ -690,7 +690,7 @@ class AvailableSlotController extends Controller
 
     /**
      * Cancel a booking
-     */
+    */
     public function cancelBooking(Request $request, $sessionId)
     {
         try {

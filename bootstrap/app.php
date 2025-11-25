@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\RefreshGoogleTokens;
+use App\Console\Commands\RunTeacherPromotionCheck;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,9 +19,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'firebase.sync' => \App\Http\Middleware\FirebaseUserSync::class,
         ]);
     })
-    ->withCommands([
-        RefreshGoogleTokens::class,
-    ])
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

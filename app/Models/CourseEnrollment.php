@@ -57,6 +57,7 @@ class CourseEnrollment extends Model
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+
     /**
      * Check if enrollment is paid
      */

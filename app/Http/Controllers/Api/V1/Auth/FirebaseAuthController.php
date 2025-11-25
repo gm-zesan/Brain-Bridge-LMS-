@@ -179,7 +179,7 @@ class FirebaseAuthController extends Controller
     /**
      * @OA\Put(
      *     path="/api/me",
-     *     tags={"User"},
+     *     tags={"Authentication"},
      *     summary="Update authenticated user's profile",
      *     description="Update user's profile information. If the user is a teacher, can also update teacher details and skills.",
      *     @OA\RequestBody(

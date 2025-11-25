@@ -135,7 +135,7 @@ class CourseController extends Controller
 
     public function allCourses()
     {
-        $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons','reviews.reviewer:id,name'])
+        $courses = Course::with(['subject', 'teacher', 'modules', 'modules.videoLessons'])
             ->where('is_published', true)
             ->latest()
             ->get();
@@ -166,7 +166,7 @@ class CourseController extends Controller
 
     public function courseDetails($id)
     {
-        $course = Course::with('subject', 'teacher', 'modules', 'modules.videoLessons')->find($id);
+        $course = Course::with('subject', 'teacher', 'modules', 'modules.videoLessons','reviews.reviewer:id,name')->find($id);
         $course->modules->transform(function ($module) {
             $module->videoLessons->transform(function ($video, $index) {
                 $video->is_accessible = $index === 0;

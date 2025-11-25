@@ -18,7 +18,12 @@ class SkillSeeder extends Seeder
         
         foreach($skills as $data)
         {
-            Skill::create($data);
+            Skill::create(
+                [
+                    'name' => $data->name,
+                    'subject_id' => $data->id,
+                ]
+            );
         }
     }
 }

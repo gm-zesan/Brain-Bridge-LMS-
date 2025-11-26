@@ -61,8 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::apiResource('students', StudentController::class)->except(['store']);
 
-    Route::apiResource('teacher-levels', TeacherLevelController::class);
     Route::get('/teacher-levels/progress', [TeacherLevelController::class, 'progressToNextLevel']);
+    Route::apiResource('teacher-levels', TeacherLevelController::class);
 
     Route::apiResource('teachers', TeacherController::class)->except(['store']);
     Route::apiResource('subjects', SubjectController::class)->except(['index']);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Teacher;
 use App\Models\TeacherLevel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 
@@ -172,18 +173,10 @@ class TeacherLevelController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/api/teacher-levels/{teacher}/progress",
-     *     operationId="teacherProgress",
+     *     path="/api/teacher-levels/progress",
      *     tags={"Teacher Levels"},
      *     summary="Get teacher progress towards next level",
      *     description="Returns the current level, next level, overall progress, and detailed breakdown of requirements for promotion.",
-     *     @OA\Parameter(
-     *         name="teacher",
-     *         in="path",
-     *         description="ID of the teacher",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
      *     @OA\Response(
      *         response=200,
      *         description="Progress retrieved successfully",
@@ -219,8 +212,9 @@ class TeacherLevelController extends Controller
      * )
     */
     
-    public function progressToNextLevel(Teacher $teacher)
+    public function progressToNextLevel()
     {
+        $teacher = Auth::user()->teacher;
         $currentLevel = $teacher->teacher_level_id;
         $nextLevelId = $currentLevel + 1;
 

@@ -4389,25 +4389,14 @@
                 ]
             }
         },
-        "/api/teacher-levels/{teacher}/progress": {
+        "/api/teacher-levels/progress": {
             "get": {
                 "tags": [
                     "Teacher Levels"
                 ],
                 "summary": "Get teacher progress towards next level",
                 "description": "Returns the current level, next level, overall progress, and detailed breakdown of requirements for promotion.",
-                "operationId": "teacherProgress",
-                "parameters": [
-                    {
-                        "name": "teacher",
-                        "in": "path",
-                        "description": "ID of the teacher",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
+                "operationId": "e9289c316c1314844136d2b0ff7f82c0",
                 "responses": {
                     "200": {
                         "description": "Progress retrieved successfully",
@@ -4502,12 +4491,7 @@
                     "404": {
                         "description": "Teacher not found"
                     }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/transactions": {

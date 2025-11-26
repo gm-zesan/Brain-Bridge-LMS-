@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\AvailableSlot;
 use App\Models\Course;
 use App\Models\Review;
-use App\Services\TeacherStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -129,16 +128,6 @@ class ReviewController extends Controller
             return response()->json(['error' => 'You cannot review yourself'], 403);
         }
 
-        $existing = Review::where([
-            'reviewer_id' => $student->id,
-            'slot_id' => $slot->id,
-            'teacher_id' => $slot->teacher_id,
-        ])->first();
-
-        if ($existing) {
-            return response()->json(['error' => 'You have already reviewed this session'], 409);
-        }
-
         $review = Review::create([
             'reviewer_id' => $student->id,
             'slot_id' => $slot->id,
@@ -152,9 +141,6 @@ class ReviewController extends Controller
             'review' => $review->load('teacher:id,name', 'slot:id,start_time'),
         ], 201);
     }
-
-
-
 
 
     /**
@@ -195,16 +181,6 @@ class ReviewController extends Controller
         // Authorization check
         if ($course->teacher_id === $student->id) {
             return response()->json(['error' => 'You cannot review your own course'], 403);
-        }
-
-        $existing = Review::where([
-            'reviewer_id' => $student->id,
-            'course_id' => $request->course_id,
-            'teacher_id' => $course->teacher_id,
-        ])->first();
-
-        if ($existing) {
-            return response()->json(['error' => 'You have already reviewed this course'], 409);
         }
 
         $review = Review::create([

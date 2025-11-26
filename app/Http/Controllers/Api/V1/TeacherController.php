@@ -59,11 +59,11 @@ class TeacherController extends Controller
                 'teacher.skills',
             ])
             ->when($skill, function ($query) use ($skill) {
-                $query->whereHas('teacher', function ($q) use ($skill) {
-                    $q->where('skills', 'LIKE', "%{$skill}%");
+                $query->whereHas('teacher.skills', function ($q) use ($skill) {
+                    $q->where('name', 'LIKE', "%{$skill}%");
                 });
             })
-            ->get();
+            ->paginate(20);
 
         return response()->json([
             'success' => true,

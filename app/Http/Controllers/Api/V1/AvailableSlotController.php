@@ -90,12 +90,9 @@ class AvailableSlotController extends Controller
             $query->where('from_date', '<=', $request->date)
                 ->where('to_date', '>=', $request->date);
         }
-        
-        $query->whereColumn('booked_count', '<', 'max_students');
 
         // Pagination
-        $slots = $query->orderBy('id', 'desc')
-                        ->paginate($request->get('per_page', 10));
+        $slots = $query->orderBy('id', 'desc')->paginate(10);
 
         // Transform only the collection
         $slots->getCollection()->transform(function ($slot) {
@@ -196,94 +193,6 @@ class AvailableSlotController extends Controller
     }
 
     
-    
-    public function bookSlot(Request $request)
-    {
-        $validated = $request->validate([
-            'slot_id' => 'required|exists:available_slots,id',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            // Lock the slot to prevent race conditions
-            $slot = AvailableSlot::where('id', $validated['slot_id'])
-                ->with('teacher', 'subject')
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            // Check availability
-            if ($slot->booked_count >= $slot->max_students) {
-                DB::rollBack();
-                return response()->json(['message' => 'This slot is already full'], 400);
-            }
-
-            // Check duplicate booking
-            if (LessonSession::where('slot_id', $slot->id)
-                    ->where('student_id', Auth::id())
-                    ->exists()) {
-                DB::rollBack();
-                return response()->json(['message' => 'You already booked this slot'], 400);
-            }
-
-            // Create lesson session
-            $session = LessonSession::create([
-                'slot_id' => $slot->id,
-                'teacher_id' => $slot->teacher_id,
-                'student_id' => Auth::id(),
-                'subject_id' => $slot->subject_id,
-                'scheduled_start_time' => $slot->start_time,
-                'scheduled_end_time' => $slot->end_time,
-                'session_type' => $slot->type,
-                'status' => 'scheduled',
-                'price' => $slot->price ?? 0,
-            ]);
-
-            // Create Google Meet
-            $meeting = $this->meetingService->createGoogleMeet(
-                $slot->teacher,
-                Carbon::parse($slot->start_time),
-                Carbon::parse($slot->end_time),
-                'Lesson: ' . ($slot->subject->name ?? 'Session')
-            );
-
-            if ($meeting) {
-                $session->update([
-                    'meeting_platform' => $meeting['platform'],
-                    'meeting_link' => $meeting['meeting_link'],
-                    'meeting_id' => $meeting['meeting_id'],
-                ]);
-            }
-
-            // Update slot
-            $slot->increment('booked_count');
-            if ($slot->booked_count >= $slot->max_students) {
-                $slot->update(['is_booked' => true]);
-            }
-
-            DB::commit();
-
-            // Send emails AFTER commit
-            Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
-            Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Slot booked successfully',
-                'data' => [
-                    'session_id' => $session->id,
-                    'meeting_link' => $meeting['meeting_link'] ?? null,
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            return response()->json([
-                'message' => 'Booking failed. Please try again.'
-            ], 500);
-        }
-    }
-
 
     /**
      * @OA\Post(

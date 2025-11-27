@@ -7,9 +7,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class TeacherPromoted extends Notification implements ShouldQueue
+class TeacherPromoted extends Notification
 {
-    use Queueable;
+    // use Queueable;
 
     private string $newLevel;
     private float $newBasePay;

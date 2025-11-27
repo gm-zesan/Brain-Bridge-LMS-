@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AvailableSlotController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Http\Controllers\Api\V1\LessonSessionController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SkillController;
 use App\Http\Controllers\Api\V1\StudentController;
@@ -110,6 +111,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('reviews', ReviewController::class)->only(['index']);
     Route::post('/reviews/teacher', [ReviewController::class, 'storeTeacherReview']);
     Route::post('/reviews/course', [ReviewController::class, 'storeCourseReview']);
+
+
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/latest', [NotificationController::class, 'latest']);
+    Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+
 
 
 

@@ -154,6 +154,7 @@ class TeacherController extends Controller
             'user_id' => $user->id,
             'title' => $data['title'] ?? null,
             'teacher_level_id' => 1,
+            'base_pay' => 20.00,
         ]);
 
         DB::commit();

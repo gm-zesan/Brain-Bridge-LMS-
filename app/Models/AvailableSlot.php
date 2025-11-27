@@ -21,6 +21,7 @@ class AvailableSlot extends Model
         'is_booked',
         'max_students',
         'booked_count',
+        'rebooked',
     ];
 
     protected $casts = [

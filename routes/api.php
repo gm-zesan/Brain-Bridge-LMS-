@@ -51,9 +51,9 @@ Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
 
 
 Route::middleware(['auth:sanctum', 'signed'])->group(function () {
-    Route::get('/email/verify/{id}/{hash}', [FirebaseAuthController::class, 'verify']);
+    Route::get('/email/verify/{id}/{hash}', [FirebaseAuthController::class, 'verify'])->name('verification.verify');
 });
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     
     Route::get('/me', [FirebaseAuthController::class, 'me']);
     Route::put('/me', [FirebaseAuthController::class, 'updateMe']);

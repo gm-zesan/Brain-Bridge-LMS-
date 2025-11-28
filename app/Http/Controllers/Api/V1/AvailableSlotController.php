@@ -179,12 +179,36 @@ class AvailableSlotController extends Controller
     */
     public function show($id)
     {
-        $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')->findOrFail($id);
+        $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')
+            ->findOrFail($id);
 
         $fromDate = $slot->from_date < now()->toDateString()
-        ? now()->toDateString()
-        : $slot->from_date;
-        
+            ? now()->toDateString()
+            : $slot->from_date;
+
+        $dates = $this->generateDateRange($fromDate, $slot->to_date);
+
+        // Get booked sessions for this slot
+        $bookedSessions = LessonSession::where('slot_id', $slot->id)
+            ->get(['scheduled_date', 'scheduled_start_time', 'scheduled_end_time']);
+
+        // Prepare daily seats summary
+        $dailyAvailability = [];
+
+        foreach ($dates as $date) {
+
+            $bookedCount = $bookedSessions
+                ->where('scheduled_date', $date)
+                ->count();
+
+            $availableSeats = $slot->max_students - $bookedCount;
+
+            $dailyAvailability[$date] = [
+                'booked' => $bookedCount,
+                'available' => max($availableSeats, 0),
+            ];
+        }
+
         return response()->json([
             'id' => $slot->id,
             'title' => $slot->title,
@@ -198,9 +222,25 @@ class AvailableSlotController extends Controller
             'type' => $slot->type,
             'price' => $slot->price,
             'description' => $slot->description,
-            'available_seats' => $slot->max_students - $slot->booked_count,
+            'daily_available_seats' => $dailyAvailability,
+            'booked_slots' => $bookedSessions,
         ]);
     }
+
+    // Helper function
+    private function generateDateRange($start, $end)
+    {
+        $dates = [];
+        $current = Carbon::parse($start);
+
+        while ($current->lte($end)) {
+            $dates[] = $current->toDateString();
+            $current->addDay();
+        }
+
+        return $dates;
+    }
+
 
     
 

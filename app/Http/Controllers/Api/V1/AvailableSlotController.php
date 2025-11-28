@@ -354,12 +354,7 @@ class AvailableSlotController extends Controller
         ]);
 
         try {
-            $slot = AvailableSlot::with('teacher', 'subject')
-                ->findOrFail($validated['slot_id']);
-            // Check availability (no lock needed yet, just checking)
-            if ($slot->booked_count >= $slot->max_students) {
-                return response()->json(['message' => 'This slot is already full'], 400);
-            }
+            $slot = AvailableSlot::with('teacher', 'subject')->findOrFail($validated['slot_id']);
 
             // Check duplicate booking
             if (LessonSession::where('slot_id', $slot->id)
@@ -552,119 +547,93 @@ class AvailableSlotController extends Controller
         ]);
 
         DB::beginTransaction();
-        // try {
-            // Lock the slot to prevent race conditions
-            $slot = AvailableSlot::where('id', $validated['slot_id'])
-                ->with('teacher', 'subject')
-                ->lockForUpdate()
-                ->firstOrFail();
+        // Lock the slot to prevent race conditions
+        $slot = AvailableSlot::where('id', $validated['slot_id'])
+            ->with('teacher', 'subject')
+            ->lockForUpdate()
+            ->firstOrFail();
 
-            // Verify payment if required
-            $paymentStatus = 'free';
-            $paymentIntentId = null;
-            $amountPaid = 0;
+        // Verify payment if required
+        $paymentStatus = 'free';
+        $paymentIntentId = null;
+        $amountPaid = 0;
 
-            if ($slot->price > 0) {
-                if (!$validated['payment_intent_id']) {
-                    DB::rollBack();
-                    return response()->json(['message' => 'Payment intent ID is required'], 400);
-                }
-                $paymentStatus = 'paid';
-                $paymentIntentId = $validated['payment_intent_id'];
-                $amountPaid = $slot->price;
+        if ($slot->price > 0) {
+            if (!$validated['payment_intent_id']) {
+                DB::rollBack();
+                return response()->json(['message' => 'Payment intent ID is required'], 400);
             }
+            $paymentStatus = 'paid';
+            $paymentIntentId = $validated['payment_intent_id'];
+            $amountPaid = $slot->price;
+        }
 
-            if (isset($validated['points_to_use']) && isset($validated['new_payment_amount'])) {
-                // Deduct points from user
-                $user = Auth::user();
-                $pointsToUse = (int)$validated['points_to_use'];
-                $user->points -= $pointsToUse;
-                $user->save();
+        if (isset($validated['points_to_use']) && isset($validated['new_payment_amount'])) {
+            // Deduct points from user
+            $user = Auth::user();
+            $pointsToUse = (int)$validated['points_to_use'];
+            $user->points -= $pointsToUse;
+            $user->save();
 
-                // Adjust amount paid
-                $amountPaid = (float)$validated['new_payment_amount'];
-            }
+            // Adjust amount paid
+            $amountPaid = (float)$validated['new_payment_amount'];
+        }
 
-            $data = [
-                'slot_id' => $slot->id,
-                'teacher_id' => $slot->teacher_id,
-                'student_id' => Auth::id(),
-                'subject_id' => $slot->subject_id,
+        $data = [
+            'slot_id' => $slot->id,
+            'teacher_id' => $slot->teacher_id,
+            'student_id' => Auth::id(),
+            'subject_id' => $slot->subject_id,
 
-                // date + time merged properly
-                'scheduled_date' => $validated['scheduled_date'],
-                'scheduled_start_time' => $validated['scheduled_date'] . ' ' . $slot->start_time,
-                'scheduled_end_time' => $validated['scheduled_date'] . ' ' . $slot->end_time,
+            // date + time merged properly
+            'scheduled_date' => $validated['scheduled_date'],
+            'scheduled_start_time' => $validated['scheduled_date'] . ' ' . $slot->start_time,
+            'scheduled_end_time' => $validated['scheduled_date'] . ' ' . $slot->end_time,
 
-                'session_type' => $slot->type,
-                'status' => 'scheduled',
+            'session_type' => $slot->type,
+            'status' => 'scheduled',
 
-                'meeting_platform' => 'google_meet',
+            'meeting_platform' => 'google_meet',
+            'meeting_link' => $slot->meeting_link,
+            'meeting_id' => null,
+
+            'price' => (float) $slot->price,
+            'payment_status' => $paymentStatus,
+            'payment_intent_id' => $paymentIntentId,
+            'payment_method' => $paymentIntentId ? 'stripe' : null,
+
+            'amount_paid' => (float) $amountPaid,
+            'currency' => 'usd',
+
+            'paid_at' => $paymentStatus === 'paid' ? now()->toDateTimeString() : null,
+        ];
+
+
+        // Create lesson session
+        $session = LessonSession::create($data);
+
+        // Update slot
+        $slot->increment('booked_count');
+        if ($slot->booked_count >= $slot->max_students) {
+            $slot->update(['is_booked' => true]);
+        }
+
+        DB::commit();
+
+        // Send emails AFTER commit
+        // Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
+        // Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Booking confirmed successfully',
+            'data' => [
+                'session_id' => $session->id,
                 'meeting_link' => $slot->meeting_link,
-                'meeting_id' => null,
-
-                'price' => (float) $slot->price,
                 'payment_status' => $paymentStatus,
-                'payment_intent_id' => $paymentIntentId,
-                'payment_method' => $paymentIntentId ? 'stripe' : null,
-
-                'amount_paid' => (float) $amountPaid,
-                'currency' => 'usd',
-
-                'paid_at' => $paymentStatus === 'paid' ? now()->toDateTimeString() : null,
-            ];
-
-
-            // Create lesson session
-            $session = LessonSession::create($data);
-
-
-            // Create Google Meet
-            // $meeting = $this->meetingService->createGoogleMeet(
-            //     $slot->teacher,
-            //     Carbon::parse($validated['scheduled_date'] . ' ' . $slot->start_time),
-            //     Carbon::parse($validated['scheduled_date'] . ' ' . $slot->end_time),  
-            //     'Lesson: ' . ($slot->subject->name ?? 'Session')
-            // );
-
-            // if ($meeting) {
-            //     $session->update([
-            //         'meeting_platform' => $meeting['platform'],
-            //         'meeting_link' => $meeting['meeting_link'],
-            //         'meeting_id' => $meeting['meeting_id'],
-            //     ]);
-            // }
-
-            // Update slot
-            $slot->increment('booked_count');
-            if ($slot->booked_count >= $slot->max_students) {
-                $slot->update(['is_booked' => true]);
-            }
-
-            DB::commit();
-
-            // Send emails AFTER commit
-            // Mail::to($slot->teacher->email)->queue(new SessionBookedMail($session, 'teacher'));
-            // Mail::to(Auth::user()->email)->queue(new SessionBookedMail($session, 'student'));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Booking confirmed successfully',
-                'data' => [
-                    'session_id' => $session->id,
-                    'meeting_link' => $slot->meeting_link,
-                    'payment_status' => $paymentStatus,
-                    'amount_paid' => $amountPaid,
-                ]
-            ]);
-
-        // } catch (\Exception $e) {
-        //     DB::rollBack();
-            
-        //     return response()->json([
-        //         'message' => 'Booking confirmation failed. Please contact support.'
-        //     ], 500);
-        // }
+                'amount_paid' => $amountPaid,
+            ]
+        ]);
     }
 
 

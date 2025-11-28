@@ -50,7 +50,7 @@ Route::get('/slots', [AvailableSlotController::class, 'index']);
 Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
 
 
-Route::middleware(['signed'])->group(function () {
+Route::middleware(['auth:sanctum','signed'])->group(function () {
     Route::get('/email/verify/{id}/{hash}', [FirebaseAuthController::class, 'verify'])->name('verification.verify');
 });
 Route::middleware(['auth:sanctum'])->group(function () {

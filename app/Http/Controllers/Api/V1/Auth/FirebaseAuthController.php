@@ -266,13 +266,6 @@ class FirebaseAuthController extends Controller
             'profile_picture' => 'nullable|file|image|mimes:jpeg,jpg,png,gif,svg|max:2048',
         ]);
 
-        if ($request->hasFile('profile_picture')) {
-            $avatar = $request->file('profile_picture');
-            $avatarName = time() . '_' . uniqid() . '.' . $avatar->getClientOriginalExtension();
-            $avatarPath = $avatar->storeAs('avatars', $avatarName, 'public');
-            $data['profile_picture'] = $avatarPath;
-        }
-
         $teacherData = [];
         if ($teacher) {
             $teacherData = $request->validate([
@@ -314,7 +307,7 @@ class FirebaseAuthController extends Controller
                     }
                     $video = $request->file('introduction_video');
                     $videoName = time() . '_' . uniqid() . '.' . $video->getClientOriginalExtension();
-                    $videoPath = $video->storeAs('videos', $videoName, 'public');
+                    $videoPath = $video->storeAs('intro_videos', $videoName, 'public');
                     $teacherData['introduction_video'] = $videoPath;
                 }
 

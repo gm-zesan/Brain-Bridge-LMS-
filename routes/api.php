@@ -56,7 +56,7 @@ Route::middleware(['auth:sanctum','signed'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     
     Route::get('/me', [FirebaseAuthController::class, 'me']);
-    Route::put('/me', [FirebaseAuthController::class, 'updateMe']);
+    Route::post('/me', [FirebaseAuthController::class, 'updateMe']);
     
     Route::post('/logout', [FirebaseAuthController::class, 'logout']);
     Route::delete('/delete', [FirebaseAuthController::class, 'destroy']);

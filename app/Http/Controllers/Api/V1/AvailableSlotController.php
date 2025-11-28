@@ -186,17 +186,22 @@ class AvailableSlotController extends Controller
             ? now()->toDateString()
             : $slot->from_date;
 
-        $dates = $this->generateDateRange($fromDate, $slot->to_date);
+        $from = Carbon::parse($fromDate);
+        $to = Carbon::parse($slot->to_date);
 
-        // Get booked sessions for this slot
+        // FIX: If from_date > to_date → swap
+        if ($from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $dates = $this->generateDateRange($from->toDateString(), $to->toDateString());
+
         $bookedSessions = LessonSession::where('slot_id', $slot->id)
             ->get(['scheduled_date', 'scheduled_start_time', 'scheduled_end_time']);
 
-        // Prepare daily seats summary
         $dailyAvailability = [];
 
         foreach ($dates as $date) {
-
             $bookedCount = $bookedSessions
                 ->where('scheduled_date', $date)
                 ->count();
@@ -215,8 +220,8 @@ class AvailableSlotController extends Controller
             'teacher' => $slot->teacher,
             'subject' => $slot->subject,
             'subject_id' => $slot->subject_id,
-            'from_date' => $fromDate,
-            'to_date' => $slot->to_date,
+            'from_date' => $from->toDateString(),
+            'to_date' => $to->toDateString(),
             'start_time' => $slot->start_time,
             'end_time' => $slot->end_time,
             'type' => $slot->type,
@@ -226,6 +231,7 @@ class AvailableSlotController extends Controller
             'booked_slots' => $bookedSessions,
         ]);
     }
+
 
     // Helper function
     private function generateDateRange($start, $end)

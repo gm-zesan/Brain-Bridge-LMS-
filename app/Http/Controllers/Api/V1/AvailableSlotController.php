@@ -356,13 +356,6 @@ class AvailableSlotController extends Controller
         try {
             $slot = AvailableSlot::with('teacher', 'subject')->findOrFail($validated['slot_id']);
 
-            // Check duplicate booking
-            if (LessonSession::where('slot_id', $slot->id)
-                    ->where('student_id', Auth::id())
-                    ->exists()) {
-                return response()->json(['message' => 'You already booked this slot'], 400);
-            }
-
             // Check if price is zero (free session)
             if ($slot->price <= 0) {
                 return response()->json([

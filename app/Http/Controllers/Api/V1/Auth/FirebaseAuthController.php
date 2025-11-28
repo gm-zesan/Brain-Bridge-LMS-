@@ -197,10 +197,10 @@ class FirebaseAuthController extends Controller
      *             @OA\Property(property="phone", type="string", example="+1234567890"),
      *             @OA\Property(property="bio", type="string", example="Experienced web developer"),
      *             @OA\Property(property="address", type="string", example="123 Main Street"),
-     *             @OA\Property(property="profile_picture", type="string", example="https://example.com/profiles/john.jpg"),
+     *             @OA\Property(property="profile_picture", type="string", example="avatars/1764352355_6929e16303767.jpg"),
      *             
      *             @OA\Property(property="title", type="string", example="Senior Teacher"),
-     *             @OA\Property(property="introduction_video", type="string", example="https://example.com/videos/intro.mp4"),
+     *             @OA\Property(property="introduction_video", type="string", example="intro_videos/intro.mp4"),
      *             @OA\Property(property="base_pay", type="number", format="float", example=50.5),
      *            @OA\Property(property="payment_method", type="string", example="paypal"),
      *            @OA\Property(property="bank_account_number", type="string", example="123456789"),

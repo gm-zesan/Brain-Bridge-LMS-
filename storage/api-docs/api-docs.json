@@ -164,7 +164,7 @@
                                     },
                                     "profile_picture": {
                                         "type": "string",
-                                        "example": "https://example.com/profiles/john.jpg"
+                                        "example": "avatars/1764352355_6929e16303767.jpg"
                                     },
                                     "title": {
                                         "type": "string",
@@ -172,7 +172,7 @@
                                     },
                                     "introduction_video": {
                                         "type": "string",
-                                        "example": "https://example.com/videos/intro.mp4"
+                                        "example": "intro_videos/intro.mp4"
                                     },
                                     "base_pay": {
                                         "type": "number",
@@ -280,12 +280,7 @@
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/email/verify/{id}/{hash}": {

@@ -7,7 +7,11 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Services\FirebaseService;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class FirebaseAuthController extends Controller
 {
@@ -74,6 +78,11 @@ class FirebaseAuthController extends Controller
             $user->assignRole('admin');
 
             $token = $user->createToken('auth_token')->plainTextToken;
+
+            // trigger email verification if needed
+            event(new Registered($user));
+
+
             return response()->json([
                 'message' => 'Registration successful',
                 'access_token' => $token,
@@ -166,12 +175,10 @@ class FirebaseAuthController extends Controller
         if (!$userId) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
-
         $user = User::with('roles')->find($userId);
         if($user->teacher) {
             $user->load('teacher', 'teacher.teacherLevel', 'teacher.skills');
         }
-
         return response()->json(['user' => $user], 200);
     }
 
@@ -195,6 +202,13 @@ class FirebaseAuthController extends Controller
      *             @OA\Property(property="title", type="string", example="Senior Teacher"),
      *             @OA\Property(property="introduction_video", type="string", example="https://example.com/videos/intro.mp4"),
      *             @OA\Property(property="base_pay", type="number", format="float", example=50.5),
+     *            @OA\Property(property="payment_method", type="string", example="paypal"),
+     *            @OA\Property(property="bank_account_number", type="string", example="123456789"),
+     *            @OA\Property(property="bank_routing_number", type="string", example="987654321"),
+     *            @OA\Property(property="bank_name", type="string", example="Bank of Examples"),
+     *            @OA\Property(property="paypal_email", type="string", example="john@example.com"),
+     *            @OA\Property(property="stripe_account_id", type="string", example="acct_1Example12345"),
+     *            @OA\Property(property="tax_id", type="string", example="TAX123456"),
      *             
      *             @OA\Property(
      *                 property="skills",
@@ -242,12 +256,14 @@ class FirebaseAuthController extends Controller
         }
 
         $teacher = $user->teacher;
-        $data = $request->validate([
+
+        $userData = $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
-            'phone' => 'sometimes|string|max:25',
-            'bio' => 'sometimes|string',
-            'address' => 'sometimes|string',
+            'phone' => 'nullable|string|max:25',
+            'bio' => 'nullable|string',
+            'address' => 'nullable|string',
+            'profile_picture' => 'nullable|file|image|mimes:jpeg,jpg,png,gif,svg|max:2048',
         ]);
 
         if ($request->hasFile('profile_picture')) {
@@ -257,42 +273,68 @@ class FirebaseAuthController extends Controller
             $data['profile_picture'] = $avatarPath;
         }
 
-        $user->update($data);
-
+        $teacherData = [];
         if ($teacher) {
             $teacherData = $request->validate([
-                'title' => 'sometimes|string|max:255',
-                'introduction_video' => 'sometimes|string',
-                'base_pay' => 'sometimes|numeric|min:0',
+                'title' => 'nullable|string|max:255',
+                'introduction_video' => 'nullable|file|mimes:mp4,avi,mov|max:51200',
+                'base_pay' => 'nullable|numeric|min:0',
+                'payment_method' => 'nullable',
+                'bank_account_number' => 'nullable|string|nullable',
+                'bank_routing_number' => 'nullable|string|nullable',
+                'bank_name' => 'nullable|string',
+                'paypal_email' => 'nullable|email',
+                'stripe_account_id' => 'nullable|string',
+                'tax_id' => 'nullable|string',
 
-                'skills' => 'sometimes|array',
-                'skills.*.skill_id' => 'required_with:skills|exists:skills,id',
-                'skills.*.years_of_experience' => 'required_with:skills|numeric|min:0',
+                'skills' => 'nullable|array',
+                'skills.*.skill_id' => 'nullable|exists:skills,id',
+                'skills.*.years_of_experience' => 'nullable|numeric|min:0',
             ]);
-
-            if ($request->hasFile('introduction_video')) {
-                $video = $request->file('introduction_video');
-                $videoName = time() . '_' . uniqid() . '.' . $video->getClientOriginalExtension();
-                $videoPath = $video->storeAs('videos', $videoName, 'public');
-                $teacherData['introduction_video'] = $videoPath;
-            }
-
-            $teacher->update(
-                array_filter($teacherData, fn($value) => !is_null($value))
-            );
-
-            if ($request->has('skills')) {
-                $syncData = [];
-
-                foreach ($request->skills as $skill) {
-                    $syncData[$skill['skill_id']] = [
-                        'years_of_experience' => $skill['years_of_experience']
-                    ];
-                }
-                $teacher->skills()->sync($syncData);
-            }
-            $user->load('teacher', 'teacher.teacherLevel', 'teacher.skills');
         }
+
+        DB::transaction(function () use ($user, $userData, $teacher, $teacherData, $request) {
+            if ($request->hasFile('profile_picture')) {
+                if ($user->profile_picture && Storage::disk('public')->exists($user->profile_picture)) {
+                    Storage::disk('public')->delete($user->profile_picture);
+                }
+                $avatar = $request->file('profile_picture');
+                $avatarName = time() . '_' . uniqid() . '.' . $avatar->getClientOriginalExtension();
+                $avatarPath = $avatar->storeAs('avatars', $avatarName, 'public');
+                $userData['profile_picture'] = $avatarPath;
+            }
+
+            $user->update($userData);
+
+            if ($teacher) {
+                // Handle introduction video
+                if ($request->hasFile('introduction_video')) {
+                    if ($teacher->introduction_video && Storage::disk('public')->exists($teacher->introduction_video)) {
+                        Storage::disk('public')->delete($teacher->introduction_video);
+                    }
+                    $video = $request->file('introduction_video');
+                    $videoName = time() . '_' . uniqid() . '.' . $video->getClientOriginalExtension();
+                    $videoPath = $video->storeAs('videos', $videoName, 'public');
+                    $teacherData['introduction_video'] = $videoPath;
+                }
+
+                $teacher->update(array_filter($teacherData, fn($value) => !is_null($value)));
+
+                // Sync skills
+                if (isset($teacherData['skills'])) {
+                    $syncData = [];
+                    foreach ($teacherData['skills'] as $skill) {
+                        $syncData[$skill['skill_id']] = [
+                            'years_of_experience' => $skill['years_of_experience'] ?? 0
+                        ];
+                    }
+                    $teacher->skills()->sync($syncData);
+                }
+            }
+
+            // Reload relations for response
+            $user->load('teacher', 'teacher.teacherLevel', 'teacher.skills');
+        });
 
         return response()->json([
             'message' => 'Profile updated successfully',
@@ -302,9 +344,68 @@ class FirebaseAuthController extends Controller
 
 
 
+    /**
+     * @OA\Get(
+     *     path="/api/email/verify/{id}/{hash}",
+     *     tags={"Authentication"},
+     *     summary="Verify user email",
+     *     description="Verifies the user's email using signed URL",
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="User ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Parameter(
+     *         name="hash",
+     *         in="path",
+     *         description="Signed hash from email link",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Email verified successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Email verified successfully.")
+     *         )
+     *     )
+     * )
+    */
+    public function verify(EmailVerificationRequest $request)
+    {
+        $request->fulfill();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Email verified successfully.'
+        ]);
+    }
 
 
 
+
+    /**
+     * @OA\Post(
+     *     path="/api/password/reset",
+     *     operationId="resetPassword",
+     *     tags={"Authentication"},
+     *     summary="Reset user password",
+     *     description="Sends a password reset link to the user's email",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"email"},
+     *             @OA\Property(property="email", type="string", example="jhon@gmail.com")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Password reset link sent successfully"), 
+     *     @OA\Response(response=422, description="Validation error"),
+     *     @OA\Response(response=500, description="Server error")
+     * )
+    */
 
 
     public function resetPassword(Request $request)
@@ -334,45 +435,6 @@ class FirebaseAuthController extends Controller
             User::where('firebase_uid', $uid)->delete();
 
             return response()->json(['message' => 'User deleted successfully from both systems']);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function googleLogin(Request $request)
-    {
-        $idToken = $request->bearerToken();
-
-        if (!$idToken) {
-            return response()->json(['error' => 'Token missing'], 401);
-        }
-
-        try {
-            $verifiedToken = $this->auth->verifyIdToken($idToken);
-            $uid = $verifiedToken->claims()->get('sub');
-            $firebaseUser = $this->auth->getUser($uid);
-
-            $user = User::firstOrCreate(
-                ['firebase_uid' => $uid],
-                [
-                    'name' => $firebaseUser->displayName ?? 'Google User',
-                    'email' => $firebaseUser->email ?? null,
-                    'password' => bcrypt(bin2hex(random_bytes(16))), // dummy password
-                ]
-            );
-
-            // ✅ Sanctum token
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            return response()->json([
-                'message' => 'Google login successful',
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-                'user' => $user,
-            ], 200);
-
-        } catch (\Kreait\Firebase\Exception\Auth\RevokedIdToken $e) {
-            return response()->json(['error' => 'Invalid or revoked token'], 401);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

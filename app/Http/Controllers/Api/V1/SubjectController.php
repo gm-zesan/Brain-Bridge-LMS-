@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Subject;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SubjectController extends Controller
 {
@@ -50,7 +51,15 @@ class SubjectController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'parent_id' => 'nullable|exists:subjects,id',
+            'icon' => 'nullable|file|mimes:jpeg,jpg,png,gif,svg|max:2048',
         ]);
+
+        if ($request->hasFile('icon')) {
+            $icon = $request->file('icon');
+            $iconName = time() . '_' . uniqid() . '.' . $icon->getClientOriginalExtension();
+            $iconPath = $icon->storeAs('icons', $iconName, 'public');
+            $data['icon'] = $iconPath;
+        }
 
         $subject = Subject::create($data);
         return response()->json($subject, 201);
@@ -116,7 +125,18 @@ class SubjectController extends Controller
         $data = $request->validate([
             'name' => 'sometimes|string|max:255',
             'parent_id' => 'nullable|exists:subjects,id',
+            'icon' => 'nullable|file|mimes:jpeg,jpg,png,gif,svg|max:2048',
         ]);
+
+        if ($request->hasFile('icon')) {
+            if ($subject->icon && Storage::disk('public')->exists($subject->icon)) {
+                Storage::disk('public')->delete($subject->icon);
+            }
+            $icon = $request->file('icon');
+            $iconName = time() . '_' . uniqid() . '.' . $icon->getClientOriginalExtension();
+            $iconPath = $icon->storeAs('icons', $iconName, 'public');
+            $data['icon'] = $iconPath;
+        }
 
         $subject->update($data);
         return response()->json($subject);
@@ -141,6 +161,9 @@ class SubjectController extends Controller
      */
     public function destroy(Subject $subject)
     {
+        if ($subject->icon && Storage::disk('public')->exists($subject->icon)) {
+            Storage::disk('public')->delete($subject->icon);
+        }
         $subject->delete();
         return response()->json(['message' => 'Subject deleted successfully']);
     }

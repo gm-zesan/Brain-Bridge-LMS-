@@ -11,8 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Exception;
-
-
+use Illuminate\Auth\Events\Registered;
 
 class TeacherController extends Controller
 {
@@ -156,6 +155,9 @@ class TeacherController extends Controller
             'teacher_level_id' => 1,
             'base_pay' => 20.00,
         ]);
+
+        // trigger email verification if needed
+        event(new Registered($user));
 
         DB::commit();
 

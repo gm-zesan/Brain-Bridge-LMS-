@@ -16,7 +16,7 @@ class NotificationController extends Controller
 {
     /**
      * @OA\Get(
-     *     path="/api/v1/notifications",
+     *     path="/api/notifications",
      *     tags={"Notifications"},
      *     summary="Get paginated notifications for authenticated user (20 per page)",
      *     @OA\Response(
@@ -44,7 +44,7 @@ class NotificationController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/api/v1/notifications/latest",
+     *     path="/api/notifications/latest",
      *     tags={"Notifications"},
      *     summary="Get the latest notification for authenticated user",
      *     @OA\Response(
@@ -81,7 +81,7 @@ class NotificationController extends Controller
 
     /**
      * @OA\Post(
-     *     path="/api/v1/notifications/mark-read/{id}",
+     *     path="/api/notifications/mark-read/{id}",
      *     tags={"Notifications"},
      *     summary="Mark a notification as read",
      *     @OA\Parameter(

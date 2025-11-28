@@ -32,6 +32,7 @@ Route::apiResource('students', StudentController::class)->only(['store']);
 Route::post('/register', [FirebaseAuthController::class, 'register']);
 Route::post('/login', [FirebaseAuthController::class, 'login']);
 
+
 Route::post('/password/reset', [FirebaseAuthController::class, 'resetPassword']);
 Route::post('/google/login', [FirebaseAuthController::class, 'googleLogin']);
 
@@ -49,7 +50,10 @@ Route::get('/slots', [AvailableSlotController::class, 'index']);
 Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
 
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'signed'])->group(function () {
+    Route::get('/email/verify/{id}/{hash}', [FirebaseAuthController::class, 'verify']);
+});
+Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     
     Route::get('/me', [FirebaseAuthController::class, 'me']);
     Route::put('/me', [FirebaseAuthController::class, 'updateMe']);

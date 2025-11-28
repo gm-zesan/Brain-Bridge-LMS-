@@ -18,6 +18,18 @@ class Teacher extends Model
         'streak_good_sessions',
         'rebook_count',
         'cancelled_sessions',
+        'payment_method',
+        'bank_account_number',
+        'bank_routing_number',
+        'bank_name',
+        'paypal_email',
+        'stripe_account_id',
+        'tax_id',
+    ];
+
+    protected $casts = [
+        'bank_account_number' => 'encrypted',
+        'bank_routing_number' => 'encrypted',
     ];
 
     public function user()

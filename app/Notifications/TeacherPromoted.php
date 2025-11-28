@@ -30,7 +30,7 @@ class TeacherPromoted extends Notification
         return (new MailMessage)
                     ->subject('🎉 Congratulations! You got promoted')
                     ->line("You have been promoted to **{$this->newLevel}** level!")
-                    ->line("Your new base pay is: ৳" . number_format($this->newBasePay, 2) . " per session")
+                    ->line("Your new base pay is: $" . number_format($this->newBasePay, 2) . " per session")
                     ->line('Your pay has increased accordingly!')
                     ->action('View Profile', url('/profile'))
                     ->line('Keep up the great teaching!');
@@ -39,7 +39,7 @@ class TeacherPromoted extends Notification
     public function toArray($notifiable): array
     {
         return [
-            'message' => "You have been promoted to {$this->newLevel}! New base pay: ৳" . number_format($this->newBasePay, 2),
+            'message' => "You have been promoted to {$this->newLevel}! New base pay: $" . number_format($this->newBasePay, 2),
             'level' => $this->newLevel,
             'new_base_pay' => $this->newBasePay
         ];

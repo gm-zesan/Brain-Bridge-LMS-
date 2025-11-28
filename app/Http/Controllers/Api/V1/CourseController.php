@@ -340,7 +340,9 @@ class CourseController extends Controller
      *         @OA\JsonContent(
      *             required={"course_id"},
      *             @OA\Property(property="course_id", type="integer", example=1, description="ID of the course to purchase"),
-     *             @OA\Property(property="payment_intent_id", type="string", example="pi_xxxxx", description="Stripe payment intent ID (required for paid courses)", nullable=true)
+     *             @OA\Property(property="payment_intent_id", type="string", example="pi_xxxxx", description="Stripe payment intent ID (required for paid courses)", nullable=true),
+     *            @OA\Property(property="points_to_use", type="integer", example=100, description="Number of points to use for discount", nullable=true),
+     *            @OA\Property(property="new_payment_amount", type="number", format="float", example=79.99, description="New payment amount after applying points", nullable=true)
      *         )
      *     ),
      *     @OA\Response(
@@ -412,83 +414,87 @@ class CourseController extends Controller
         $validated = $request->validate([
             'course_id' => 'required|exists:courses,id',
             'payment_intent_id' => 'nullable|string', // nullable for free courses
+            'points_to_use' => 'nullable',
+            'new_payment_amount' => 'nullable',
         ]);
 
         DB::beginTransaction();
-        // try {
-            $course = Course::with('teacher', 'subject')
-                ->where('is_published', true)
-                ->with('teacher', 'subject')
-                ->lockForUpdate()
-                ->findOrFail($validated['course_id']);
+        $course = Course::with('teacher', 'subject')
+            ->where('is_published', true)
+            ->with('teacher', 'subject')
+            ->lockForUpdate()
+            ->findOrFail($validated['course_id']);
 
-            // Re-check duplicate purchase
-            if (CourseEnrollment::where('course_id', $course->id)
-                    ->where('student_id', Auth::id())
-                    ->exists()) {
+        // Re-check duplicate purchase
+        if (CourseEnrollment::where('course_id', $course->id)
+                ->where('student_id', Auth::id())
+                ->exists()) {
+            DB::rollBack();
+            return response()->json(['message' => 'You already own this course'], 400);
+        }
+
+        // Verify payment if required
+        $paymentStatus = 'free';
+        $paymentIntentId = null;
+        $amountPaid = 0;
+
+        if ($course->price > 0) {
+            if (!$validated['payment_intent_id']) {
                 DB::rollBack();
-                return response()->json(['message' => 'You already own this course'], 400);
+                return response()->json(['message' => 'Payment intent ID is required'], 400);
             }
 
-            // Verify payment if required
-            $paymentStatus = 'free';
-            $paymentIntentId = null;
-            $amountPaid = 0;
+            $paymentStatus = 'paid';
+            $paymentIntentId = $validated['payment_intent_id'];
+            $amountPaid = $course->price;
+        }
 
-            if ($course->price > 0) {
-                if (!$validated['payment_intent_id']) {
-                    DB::rollBack();
-                    return response()->json(['message' => 'Payment intent ID is required'], 400);
-                }
+        if (isset($validated['points_to_use']) && isset($validated['new_payment_amount'])) {
+            // Deduct points from user
+            $user = Auth::user();
+            $pointsToUse = (int)$validated['points_to_use'];
+            $user->points -= $pointsToUse;
+            $user->save();
 
-                $paymentStatus = 'paid';
-                $paymentIntentId = $validated['payment_intent_id'];
-                $amountPaid = $course->price;
-            }
+            // Adjust amount paid
+            $amountPaid = (float)$validated['new_payment_amount'];
+        }
 
-            // Create course enrollment
-            $enrollment = CourseEnrollment::create([
+        // Create course enrollment
+        $enrollment = CourseEnrollment::create([
+            'course_id' => $course->id,
+            'student_id' => Auth::id(),
+            'teacher_id' => $course->teacher_id,
+            'enrolled_at' => now()->toDateTimeString(),
+            'payment_status' => $paymentStatus,
+            'payment_intent_id' => $paymentIntentId,
+            'payment_method' => $paymentIntentId ? 'stripe' : null,
+            'amount_paid' => (float)$amountPaid,
+            'currency' => 'usd',
+            'paid_at' => $paymentStatus === 'paid' ? now()->toDateTimeString() : null,
+            'status' => 'active',
+        ]);
+
+        // Increment enrollment count
+        $course->increment('enrollment_count');
+
+        DB::commit();
+
+        // Send emails AFTER commit
+        // Mail::to($course->teacher->email)->queue(new CourseEnrolledMail($enrollment, 'teacher'));
+        // Mail::to(Auth::user()->email)->queue(new CourseEnrolledMail($enrollment, 'student'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Course purchased successfully',
+            'data' => [
+                'enrollment_id' => $enrollment->id,
                 'course_id' => $course->id,
-                'student_id' => Auth::id(),
-                'teacher_id' => $course->teacher_id,
-                'enrolled_at' => now()->toDateTimeString(),
                 'payment_status' => $paymentStatus,
-                'payment_intent_id' => $paymentIntentId,
-                'payment_method' => $paymentIntentId ? 'stripe' : null,
-                'amount_paid' => (float)$amountPaid,
-                'currency' => 'usd',
-                'paid_at' => $paymentStatus === 'paid' ? now()->toDateTimeString() : null,
-                'status' => 'active',
-            ]);
-
-            // Increment enrollment count
-            $course->increment('enrollment_count');
-
-            DB::commit();
-
-            // Send emails AFTER commit
-            // Mail::to($course->teacher->email)->queue(new CourseEnrolledMail($enrollment, 'teacher'));
-            // Mail::to(Auth::user()->email)->queue(new CourseEnrolledMail($enrollment, 'student'));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Course purchased successfully',
-                'data' => [
-                    'enrollment_id' => $enrollment->id,
-                    'course_id' => $course->id,
-                    'payment_status' => $paymentStatus,
-                    'amount_paid' => $amountPaid,
-                    'enrolled_at' => $enrollment->enrolled_at,
-                ]
-            ]);
-
-        // } catch (\Exception $e) {
-        //     DB::rollBack();
-            
-        //     return response()->json([
-        //         'message' => 'Purchase confirmation failed. Please contact support.'
-        //     ], 500);
-        // }
+                'amount_paid' => $amountPaid,
+                'enrolled_at' => $enrollment->enrolled_at,
+            ]
+        ]);
     }
 
 

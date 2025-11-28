@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\FirebaseService;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -114,6 +115,9 @@ class StudentController extends Controller
             }
 
             $user->assignRole('student');
+
+            // trigger email verification if needed
+            event(new Registered($user));
 
             DB::commit();
 

@@ -179,6 +179,34 @@
                                         "format": "float",
                                         "example": 50.5
                                     },
+                                    "payment_method": {
+                                        "type": "string",
+                                        "example": "paypal"
+                                    },
+                                    "bank_account_number": {
+                                        "type": "string",
+                                        "example": "123456789"
+                                    },
+                                    "bank_routing_number": {
+                                        "type": "string",
+                                        "example": "987654321"
+                                    },
+                                    "bank_name": {
+                                        "type": "string",
+                                        "example": "Bank of Examples"
+                                    },
+                                    "paypal_email": {
+                                        "type": "string",
+                                        "example": "john@example.com"
+                                    },
+                                    "stripe_account_id": {
+                                        "type": "string",
+                                        "example": "acct_1Example12345"
+                                    },
+                                    "tax_id": {
+                                        "type": "string",
+                                        "example": "TAX123456"
+                                    },
                                     "skills": {
                                         "type": "array",
                                         "items": {
@@ -258,6 +286,103 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/email/verify/{id}/{hash}": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Verify user email",
+                "description": "Verifies the user's email using signed URL",
+                "operationId": "c638d628d7137ba3799d99ebf629f0dd",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "hash",
+                        "in": "path",
+                        "description": "Signed hash from email link",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email verified successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Email verified successfully."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/password/reset": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Reset user password",
+                "description": "Sends a password reset link to the user's email",
+                "operationId": "resetPassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "example": "jhon@gmail.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset link sent successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
             }
         },
         "/api/slots": {
@@ -671,6 +796,19 @@
                                         "description": "Stripe payment intent ID (required for paid sessions, optional for free sessions)",
                                         "type": "string",
                                         "example": "pi_3QXxxxxxxxxxxxx",
+                                        "nullable": true
+                                    },
+                                    "points_to_use": {
+                                        "description": "Number of points to use for discount",
+                                        "type": "integer",
+                                        "example": 100,
+                                        "nullable": true
+                                    },
+                                    "new_payment_amount": {
+                                        "description": "New payment amount after applying points",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 79.99,
                                         "nullable": true
                                     }
                                 },
@@ -2088,6 +2226,19 @@
                                         "type": "string",
                                         "example": "pi_xxxxx",
                                         "nullable": true
+                                    },
+                                    "points_to_use": {
+                                        "description": "Number of points to use for discount",
+                                        "type": "integer",
+                                        "example": 100,
+                                        "nullable": true
+                                    },
+                                    "new_payment_amount": {
+                                        "description": "New payment amount after applying points",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 79.99,
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -3247,13 +3398,13 @@
                 ]
             }
         },
-        "/api/v1/notifications": {
+        "/api/notifications": {
             "get": {
                 "tags": [
                     "Notifications"
                 ],
                 "summary": "Get paginated notifications for authenticated user (20 per page)",
-                "operationId": "cac3bdde44f0be0512f7d05c0a6064e4",
+                "operationId": "48e63b8d00c40cf089be36e2611db3a2",
                 "responses": {
                     "200": {
                         "description": "List of notifications",
@@ -3274,16 +3425,21 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
-        "/api/v1/notifications/latest": {
+        "/api/notifications/latest": {
             "get": {
                 "tags": [
                     "Notifications"
                 ],
                 "summary": "Get the latest notification for authenticated user",
-                "operationId": "8348b04d7523ed638394335fb4ba3fac",
+                "operationId": "fc37eebd90ab620719c27c1e37b75be9",
                 "responses": {
                     "200": {
                         "description": "Latest notification",
@@ -3326,16 +3482,21 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
-        "/api/v1/notifications/mark-read/{id}": {
+        "/api/notifications/mark-read/{id}": {
             "post": {
                 "tags": [
                     "Notifications"
                 ],
                 "summary": "Mark a notification as read",
-                "operationId": "62fd5dab728a722b4706f6ca5ad7b66a",
+                "operationId": "24810e922473b36d820d22a54e167b60",
                 "parameters": [
                     {
                         "name": "id",
@@ -3364,7 +3525,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/notifications/mark-all-read": {

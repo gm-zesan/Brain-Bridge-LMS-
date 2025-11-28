@@ -12,6 +12,7 @@ use App\Services\PaymentService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -31,6 +32,8 @@ class AvailableSlotController extends Controller
         $this->meetingService = $meetingService;
         $this->paymentService = $paymentService;
     }
+
+
     /**
      * @OA\Get(
      *     path="/api/slots",
@@ -75,7 +78,6 @@ class AvailableSlotController extends Controller
      *     )
      * )
     */
-
     public function index(Request $request)
     {
         $query = AvailableSlot::with('teacher:id,name,email', 'subject:id,name');
@@ -91,11 +93,31 @@ class AvailableSlotController extends Controller
                 ->where('to_date', '>=', $request->date);
         }
 
-        // Pagination
+        // Never show past slots
+        $query->where('to_date', '>=', now()->toDateString());
+
+        // Pagination result
         $slots = $query->orderBy('id', 'desc')->paginate(10);
 
-        // Transform only the collection
-        $slots->getCollection()->transform(function ($slot) {
+        // Filter out fully booked slots
+        $filtered = $slots->getCollection()->filter(function ($slot) {
+
+            // Create date range
+            $period = CarbonPeriod::create($slot->from_date, $slot->to_date);
+            $allDates = collect($period)->map(fn($d) => $d->format('Y-m-d'));
+
+            // Get booked dates
+            $bookedDates = LessonSession::where('slot_id', $slot->id)
+                ->pluck('scheduled_date');
+
+            // If all dates are booked, hide this slot
+            $fullyBooked = $allDates->diff($bookedDates)->count() === 0;
+
+            return !$fullyBooked; // only show not-fully-booked slots
+        });
+
+        // Transform visible slots only
+        $slots->setCollection($filtered->values()->map(function ($slot) {
             return [
                 'id' => $slot->id,
                 'title' => $slot->title,
@@ -108,12 +130,13 @@ class AvailableSlotController extends Controller
                 'type' => $slot->type,
                 'price' => $slot->price,
             ];
-        });
+        }));
 
         return response()->json([
             'slots' => $slots
         ], 200);
     }
+
 
 
 
@@ -157,23 +180,10 @@ class AvailableSlotController extends Controller
     public function show($id)
     {
         $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')->findOrFail($id);
-        
-        // Get all slots of the same teacher within the same date range
-        // $allSlotsSamePeriod = AvailableSlot::where('teacher_id', $slot->teacher_id)
-        //     ->where('from_date', $slot->from_date)
-        //     ->where('to_date', $slot->to_date)
-        //     ->orderBy('start_time')
-        //     ->get(['id', 'start_time', 'end_time', 'booked_count', 'max_students']);
-        
-        // Format time slots with availability
-        // $formattedSlots = $allSlotsSamePeriod->map(function ($s) {
-        //     return [
-        //         'id' => $s->id,
-        //         'start_time' => date('H:i', strtotime($s->start_time)),
-        //         'end_time' => date('H:i', strtotime($s->end_time)),
-        //         'available_seats' => $s->max_students - $s->booked_count,
-        //     ];
-        // });
+
+        $fromDate = $slot->from_date < now()->toDateString()
+        ? now()->toDateString()
+        : $slot->from_date;
         
         return response()->json([
             'id' => $slot->id,
@@ -181,7 +191,7 @@ class AvailableSlotController extends Controller
             'teacher' => $slot->teacher,
             'subject' => $slot->subject,
             'subject_id' => $slot->subject_id,
-            'from_date' => $slot->from_date,
+            'from_date' => $fromDate,
             'to_date' => $slot->to_date,
             'start_time' => $slot->start_time,
             'end_time' => $slot->end_time,
@@ -400,7 +410,9 @@ class AvailableSlotController extends Controller
      *                 description="Stripe payment intent ID (required for paid sessions, optional for free sessions)",
      *                 example="pi_3QXxxxxxxxxxxxx",
      *                 nullable=true
-     *             )
+     *             ),
+     *            @OA\Property(property="points_to_use", type="integer", example=100, description="Number of points to use for discount", nullable=true),
+     *            @OA\Property(property="new_payment_amount", type="number", format="float", example=79.99, description="New payment amount after applying points", nullable=true)
      *         )
      *     ),
      *     @OA\Response(
@@ -489,6 +501,8 @@ class AvailableSlotController extends Controller
             'slot_id' => 'required|exists:available_slots,id',
             'scheduled_date' => 'required',
             'payment_intent_id' => 'nullable|string', // Required for paid slots
+            'points_to_use' => 'nullable',
+            'new_payment_amount' => 'nullable',
         ]);
 
         DB::beginTransaction();
@@ -512,6 +526,17 @@ class AvailableSlotController extends Controller
                 $paymentStatus = 'paid';
                 $paymentIntentId = $validated['payment_intent_id'];
                 $amountPaid = $slot->price;
+            }
+
+            if (isset($validated['points_to_use']) && isset($validated['new_payment_amount'])) {
+                // Deduct points from user
+                $user = Auth::user();
+                $pointsToUse = (int)$validated['points_to_use'];
+                $user->points -= $pointsToUse;
+                $user->save();
+
+                // Adjust amount paid
+                $amountPaid = (float)$validated['new_payment_amount'];
             }
 
             $data = [

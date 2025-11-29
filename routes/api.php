@@ -51,6 +51,10 @@ Route::get('public-courses/{id}', [CourseController::class, 'courseDetails']);
 Route::get('/slots', [AvailableSlotController::class, 'index']);
 Route::get('/slots/{id}', [AvailableSlotController::class, 'show']);
 
+// all slots
+Route::get('/in-person-slots', [InPersonSlotController::class, 'index']);
+Route::get('/in-person-slots/{id}', [InPersonSlotController::class, 'show']);
+
 
 Route::middleware(['auth:sanctum','signed'])->group(function () {
     Route::get('/email/verify/{id}/{hash}', [FirebaseAuthController::class, 'verify'])->name('verification.verify');

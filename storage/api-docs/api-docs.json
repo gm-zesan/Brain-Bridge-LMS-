@@ -3393,6 +3393,380 @@
                 ]
             }
         },
+        "/api/course-requests": {
+            "get": {
+                "tags": [
+                    "Course Requests"
+                ],
+                "summary": "Get all course requests (Admin)",
+                "description": "Returns a list of all course requests submitted by students.",
+                "operationId": "fde7d88b8636d6d5873550470d24474f",
+                "responses": {
+                    "200": {
+                        "description": "List of all course requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer",
+                                                "example": 1
+                                            },
+                                            "student_id": {
+                                                "type": "integer",
+                                                "example": 10
+                                            },
+                                            "course_name": {
+                                                "type": "string",
+                                                "example": "Advanced Machine Learning"
+                                            },
+                                            "course_description": {
+                                                "type": "string",
+                                                "example": "A deep learning focused course"
+                                            },
+                                            "subject": {
+                                                "type": "string",
+                                                "example": "AI / ML"
+                                            },
+                                            "additional_note": {
+                                                "type": "string",
+                                                "example": "This course is important for my research."
+                                            },
+                                            "status": {
+                                                "type": "string",
+                                                "example": "pending"
+                                            },
+                                            "admin_note": {
+                                                "type": "string",
+                                                "example": ""
+                                            },
+                                            "created_at": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                                "example": "2025-11-29T05:41:51Z"
+                                            },
+                                            "updated_at": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                                "example": "2025-11-29T05:41:51Z"
+                                            },
+                                            "student": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 10
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "John Doe"
+                                                    },
+                                                    "email": {
+                                                        "type": "string",
+                                                        "example": "john.doe@example.com"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Course Requests"
+                ],
+                "summary": "Submit a new course request (Student)",
+                "description": "Allows a student to submit a new course request for a course that does not exist on the platform.",
+                "operationId": "cf704a4c63f5641e5fdef4770ca67147",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "course_name": {
+                                        "type": "string",
+                                        "example": "Advanced Machine Learning"
+                                    },
+                                    "course_description": {
+                                        "type": "string",
+                                        "example": "A deep learning focused course"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "example": "AI / ML"
+                                    },
+                                    "additional_note": {
+                                        "type": "string",
+                                        "example": "This course is important for my research."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Course request submitted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course request submitted successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "course_name": {
+                                                    "type": "string",
+                                                    "example": "Advanced Machine Learning"
+                                                },
+                                                "course_description": {
+                                                    "type": "string",
+                                                    "example": "A deep learning focused course"
+                                                },
+                                                "subject": {
+                                                    "type": "string",
+                                                    "example": "AI / ML"
+                                                },
+                                                "additional_note": {
+                                                    "type": "string",
+                                                    "example": "This course is important for my research."
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/my-course-requests": {
+            "get": {
+                "tags": [
+                    "Course Requests"
+                ],
+                "summary": "Get logged-in student's course requests",
+                "description": "Returns a list of course requests submitted by the authenticated student.",
+                "operationId": "b4b351288ca6c92b72294691a4685f38",
+                "responses": {
+                    "200": {
+                        "description": "Student's course request list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "My Course Requests"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "course_name": {
+                                                        "type": "string",
+                                                        "example": "Advanced AI"
+                                                    },
+                                                    "course_description": {
+                                                        "type": "string",
+                                                        "example": "A deep learning focused course"
+                                                    },
+                                                    "subject": {
+                                                        "type": "string",
+                                                        "example": "AI / ML"
+                                                    },
+                                                    "additional_note": {
+                                                        "type": "string",
+                                                        "example": "Useful for project work"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "pending"
+                                                    },
+                                                    "admin_note": {
+                                                        "type": "string",
+                                                        "example": ""
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2025-11-29T05:41:51Z"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2025-11-29T05:41:51Z"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/course-request/{id}/approve": {
+            "post": {
+                "tags": [
+                    "Course Requests"
+                ],
+                "summary": "Approve a course request (Admin)",
+                "description": "Admin approves a pending course request.",
+                "operationId": "c16197c349807681dce81c6320eaaed7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Course request ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 5
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "admin_note": {
+                                        "type": "string",
+                                        "example": "Approved and will be added next month"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Course request approved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course request approved"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/course-request/{id}/reject": {
+            "post": {
+                "tags": [
+                    "Course Requests"
+                ],
+                "summary": "Reject a course request (Admin)",
+                "description": "Admin rejects a course request.",
+                "operationId": "52484ac9946d66104b15ce52466d9ee7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Course request ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 5
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "admin_note": {
+                                        "type": "string",
+                                        "example": "Not suitable for our platform"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Course request rejected",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Course request rejected"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/notifications": {
             "get": {
                 "tags": [
@@ -5224,6 +5598,10 @@
         {
             "name": "Courses",
             "description": "API Endpoints for managing courses"
+        },
+        {
+            "name": "Course Requests",
+            "description": "API for handling course request submissions, listing, and approvals"
         },
         {
             "name": "Notifications",

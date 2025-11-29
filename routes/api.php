@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Auth\FirebaseAuthController;
 use App\Http\Controllers\Api\V1\AvailableSlotController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\CourseRequestController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
 use App\Http\Controllers\Api\V1\LessonSessionController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -103,6 +104,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/auth/google/disconnect', [GoogleAuthController::class, 'disconnect']);
 
 
+    // Course Request Routes
+    Route::get('/my-course-requests', [CourseRequestController::class, 'myRequests']);
+    Route::post('/course-requests', [CourseRequestController::class, 'store']);
+    Route::get('/course-requests', [CourseRequestController::class, 'index']);
+    Route::post('/course-request/{id}/approve', [CourseRequestController::class, 'approve']);
+    Route::post('/course-request/{id}/reject', [CourseRequestController::class, 'reject']);
+
+
+
 
 
     // student enrolled courses
@@ -111,13 +121,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/teacher/enrolled-courses', [CourseController::class, 'teacherEnrolledCourses']);
 
 
-
+    // Reviews Routes
     Route::apiResource('reviews', ReviewController::class)->only(['index']);
     Route::post('/reviews/teacher', [ReviewController::class, 'storeTeacherReview']);
     Route::post('/reviews/course', [ReviewController::class, 'storeCourseReview']);
 
 
-
+    // Notification Routes
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/latest', [NotificationController::class, 'latest']);
     Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markRead']);

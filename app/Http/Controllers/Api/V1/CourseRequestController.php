@@ -257,6 +257,30 @@ class CourseRequestController extends Controller
     }
 
 
+    /**
+     * @OA\Delete(
+     *     path="/api/my-course-requests-delete/{id}",
+     *     summary="Delete a course request (Student)",
+     *     description="Allows a student to delete their own course request.",
+     *     tags={"Course Requests"},
+     *
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="Course request ID",
+     *         @OA\Schema(type="integer", example=3)
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=200,
+     *         description="Course request deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Course request deleted")
+     *         )
+     *     )
+     * )
+    */
     public function myRequestsDestroy($id)
     {
         $requestData = CourseRequest::findOrFail($id);

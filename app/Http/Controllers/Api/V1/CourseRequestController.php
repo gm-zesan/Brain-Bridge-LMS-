@@ -57,7 +57,7 @@ class CourseRequestController extends Controller
 
     public function index()
     {
-        $requests = CourseRequest::with('student')->orderBy('id', 'desc')->get();
+        $requests = CourseRequest::with('student')->orderBy('id', 'desc')->paginate(20);
         return response()->json($requests);
     }
 
@@ -100,7 +100,7 @@ class CourseRequestController extends Controller
     {
         $requests = CourseRequest::where('student_id', Auth::id())
             ->orderBy('id', 'desc')
-            ->get();
+            ->paginate(10);
 
         return response()->json([
             'message' => 'My Course Requests',

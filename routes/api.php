@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AvailableSlotController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\CourseRequestController;
 use App\Http\Controllers\Api\V1\GoogleAuthController;
+use App\Http\Controllers\Api\V1\InPersonSlotController;
 use App\Http\Controllers\Api\V1\LessonSessionController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReviewController;
@@ -81,6 +82,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/courses/confirm-purchase', [CourseController::class, 'confirmCoursePurchase']);
 
 
+
+    
     // available slots
     // Teacher actions
     Route::get('/teacher/slots', [AvailableSlotController::class, 'mySlots']);
@@ -88,7 +91,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/teacher/slots', [AvailableSlotController::class, 'store']);
     Route::put('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'update']);
     Route::delete('/teacher/slots/{availableSlot}', [AvailableSlotController::class, 'destroy']);
-
     // Student actions
     Route::post('/slot/bookings/intent', [AvailableSlotController::class, 'createBookingIntent']);
     Route::post('/slot/bookings/confirm', [AvailableSlotController::class, 'confirmBooking']);
@@ -96,12 +98,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/student/booked-slots', [AvailableSlotController::class, 'studentBookedSlots']);
 
 
-    // Lesson Sessions booking
-    Route::post('/lesson-sessions', [LessonSessionController::class, 'store']);
-    Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle']);
-    Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
-    Route::get('/auth/google/status', [GoogleAuthController::class, 'status']);
-    Route::post('/auth/google/disconnect', [GoogleAuthController::class, 'disconnect']);
+
+
+    // in person slots
+    // Teacher actions
+    Route::get('/teacher/in-person-slots', [InPersonSlotController::class, 'mySlots']);
+    Route::get('/teacher/in-person-slots/booked', [InPersonSlotController::class, 'bookedSlots']);
+    Route::post('/teacher/in-person-slots', [InPersonSlotController::class, 'store']);
+    Route::put('/teacher/in-person-slots/{inPersonSlot}', [InPersonSlotController::class, 'update']);
+    Route::delete('/teacher/in-person-slots/{inPersonSlot}', [InPersonSlotController::class, 'destroy']);
+    // Student actions
+    Route::post('/in-person-slot/bookings/intent', [InPersonSlotController::class, 'createBookingIntent']);
+    Route::post('/in-person-slot/bookings/confirm', [InPersonSlotController::class, 'confirmBooking']);
+    Route::get('/student/booked-in-person-slots', [InPersonSlotController::class, 'studentBookedSlots']);
+
+
 
 
     // Course Request Routes

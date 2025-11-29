@@ -559,7 +559,7 @@
                 ],
                 "summary": "Create booking payment intent",
                 "description": "Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
-                "operationId": "createBookingIntent",
+                "operationId": "createInPersonBookingIntent",
                 "requestBody": {
                     "description": "Slot ID and schedule date for booking",
                     "required": true,
@@ -765,7 +765,7 @@
                 ],
                 "summary": "Confirm booking after payment",
                 "description": "Confirms and finalizes the booking after successful payment. Creates lesson session, generates Google Meet link, and sends confirmation emails. For free sessions, payment_intent_id is not required.",
-                "operationId": "confirmBooking",
+                "operationId": "confirmInPersonBooking",
                 "requestBody": {
                     "description": "Booking confirmation data",
                     "required": true,
@@ -1344,7 +1344,7 @@
                 ],
                 "summary": "Update an available slot",
                 "description": "Teacher updates their own slot. Cannot update if the slot has bookings. All fields are optional.",
-                "operationId": "updateSlot",
+                "operationId": "updateInPersonSlot",
                 "parameters": [
                     {
                         "name": "id",
@@ -3767,6 +3767,1268 @@
                 ]
             }
         },
+        "/api/in-person-slots": {
+            "get": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Get all available slots (filter by teacher/date)",
+                "operationId": "e12c0ebe20d957fb2b7a4691f5cdb41e",
+                "parameters": [
+                    {
+                        "name": "teacher_id",
+                        "in": "query",
+                        "description": "Filter slots by teacher ID",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Filter slots by date (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of available slots",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "slots": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "teacher": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "email": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "subject": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "time": {
+                                                        "type": "string"
+                                                    },
+                                                    "available_seats": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/in-person-slots/{id}": {
+            "get": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Get full details of a slot",
+                "operationId": "b7669e90f4a04b8b35a86852d99b1429",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the slot",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Slot details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "teacher": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "email": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "subject_id": {
+                                            "type": "integer"
+                                        },
+                                        "available_date": {
+                                            "type": "string",
+                                            "format": "date"
+                                        },
+                                        "slots": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "start_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "end_time": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "price": {
+                                            "type": "number",
+                                            "format": "float"
+                                        },
+                                        "description": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/in-person-slot/bookings/intent": {
+            "post": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Create booking payment intent",
+                "description": "Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
+                "operationId": "createBookingIntent",
+                "requestBody": {
+                    "description": "Slot ID and schedule date for booking",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "slot_id",
+                                    "scheduled_date"
+                                ],
+                                "properties": {
+                                    "slot_id": {
+                                        "description": "ID of the available slot to book",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "scheduled_date": {
+                                        "description": "Date on which the session will be booked (must be within slot range)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-11-20"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Booking intent created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "requires_payment": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "client_secret": {
+                                            "type": "string",
+                                            "example": "pi_xxxxx_secret_xxxxx"
+                                        },
+                                        "payment_intent_id": {
+                                            "type": "string",
+                                            "example": "pi_xxxxx"
+                                        },
+                                        "amount": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 50
+                                        },
+                                        "slot": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "subject": {
+                                                    "type": "string",
+                                                    "example": "Mathematics"
+                                                },
+                                                "teacher": {
+                                                    "type": "string",
+                                                    "example": "John Doe"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-12-01 10:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-12-01 11:00:00"
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 50
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Slot is full or already booked",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "This slot is already full"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slot not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The slot id field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "slot_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The slot id field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - payment intent creation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Failed to create payment intent"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Stripe API error message"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/in-person-slot/bookings/confirm": {
+            "post": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Confirm booking after payment",
+                "operationId": "confirmBooking",
+                "requestBody": {
+                    "description": "Booking confirmation data",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "slot_id",
+                                    "scheduled_date"
+                                ],
+                                "properties": {
+                                    "slot_id": {
+                                        "description": "ID of the slot to confirm booking",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "scheduled_date": {
+                                        "description": "Available Date selection by User",
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "payment_intent_id": {
+                                        "description": "Stripe payment intent ID (required for paid sessions, optional for free sessions)",
+                                        "type": "string",
+                                        "example": "pi_3QXxxxxxxxxxxxx",
+                                        "nullable": true
+                                    },
+                                    "points_to_use": {
+                                        "description": "Number of points to use for discount",
+                                        "type": "integer",
+                                        "example": 100,
+                                        "nullable": true
+                                    },
+                                    "new_payment_amount": {
+                                        "description": "New payment amount after applying points",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 79.99,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Booking confirmed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Booking confirmed successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "session_id": {
+                                                    "type": "integer",
+                                                    "example": 42
+                                                },
+                                                "meeting_link": {
+                                                    "type": "string",
+                                                    "example": "https://meet.google.com/abc-defg-hij",
+                                                    "nullable": true
+                                                },
+                                                "payment_status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "paid",
+                                                        "free"
+                                                    ],
+                                                    "example": "paid"
+                                                },
+                                                "amount_paid": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 50
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - validation or payment error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "This slot is already full"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "You already booked this slot"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Payment intent ID is required"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Failed to verify payment"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Payment not completed"
+                                                },
+                                                "payment_status": {
+                                                    "type": "string",
+                                                    "example": "requires_payment_method"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slot not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The slot id field is required."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "slot_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The slot id field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - booking confirmation failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Booking confirmation failed. Please contact support."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/student/booked-in-person-slots": {
+            "get": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Get list of slots booked by the authenticated student",
+                "operationId": "9c2131ffce43e676e23efb6b290d4739",
+                "responses": {
+                    "200": {
+                        "description": "List of booked slots returned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "slots": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 10
+                                                            },
+                                                            "slot_id": {
+                                                                "type": "integer",
+                                                                "example": 2
+                                                            },
+                                                            "student_id": {
+                                                                "type": "integer",
+                                                                "example": 4
+                                                            },
+                                                            "scheduled_date": {
+                                                                "type": "string",
+                                                                "format": "date",
+                                                                "example": "2025-11-20"
+                                                            },
+                                                            "status": {
+                                                                "type": "string",
+                                                                "example": "scheduled"
+                                                            },
+                                                            "slot": {
+                                                                "properties": {
+                                                                    "id": {
+                                                                        "type": "integer",
+                                                                        "example": 2
+                                                                    },
+                                                                    "title": {
+                                                                        "type": "string",
+                                                                        "example": "Math Class"
+                                                                    },
+                                                                    "type": {
+                                                                        "type": "string",
+                                                                        "example": "one_to_one"
+                                                                    },
+                                                                    "price": {
+                                                                        "type": "number",
+                                                                        "example": 50
+                                                                    },
+                                                                    "teacher": {
+                                                                        "properties": {
+                                                                            "id": {
+                                                                                "type": "integer",
+                                                                                "example": 7
+                                                                            },
+                                                                            "name": {
+                                                                                "type": "string",
+                                                                                "example": "John Doe"
+                                                                            },
+                                                                            "email": {
+                                                                                "type": "string",
+                                                                                "example": "john@example.com"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    },
+                                                                    "subject": {
+                                                                        "properties": {
+                                                                            "id": {
+                                                                                "type": "integer",
+                                                                                "example": 1
+                                                                            },
+                                                                            "name": {
+                                                                                "type": "string",
+                                                                                "example": "Mathematics"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "first_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://localhost/api/student/booked-slots?page=1"
+                                                },
+                                                "from": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "last_page_url": {
+                                                    "type": "string",
+                                                    "example": "http://localhost/api/student/booked-slots?page=3"
+                                                },
+                                                "next_page_url": {
+                                                    "type": "string",
+                                                    "example": null
+                                                },
+                                                "path": {
+                                                    "type": "string",
+                                                    "example": "http://localhost/api/student/booked-slots"
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "prev_page_url": {
+                                                    "type": "string",
+                                                    "example": null
+                                                },
+                                                "to": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 27
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/teacher/in-person-slots": {
+            "get": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Teacher views their own slots",
+                "operationId": "28a77508c7a784371d34c4bbf4114780",
+                "responses": {
+                    "200": {
+                        "description": "Teacher's slots"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Teacher creates one or more slots",
+                "operationId": "9874717f6ebfcfcf3cc0838ecb2db28f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "subject_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "from_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "to_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "slots": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "09:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "11:00"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "example": 50
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Slots created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "teacher_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "subject_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "from_date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "to_date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "start_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "end_time": {
+                                                        "type": "string"
+                                                    },
+                                                    "price": {
+                                                        "type": "number"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/teacher/in-person-slots/{id}": {
+            "put": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Update an available slot",
+                "description": "Teacher updates their own slot. Cannot update if the slot has bookings. All fields are optional.",
+                "operationId": "updateSlot",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the slot to update",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Fields to update (all optional)",
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "title": {
+                                        "description": "Slot title",
+                                        "type": "string",
+                                        "example": "Advanced Mathematics Session"
+                                    },
+                                    "subject_id": {
+                                        "description": "Subject ID",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "from_date": {
+                                        "description": "Start date (YYYY-MM-DD)",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-01"
+                                    },
+                                    "to_date": {
+                                        "description": "End date (YYYY-MM-DD), must be after or equal to from_date",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2024-12-31"
+                                    },
+                                    "start_time": {
+                                        "description": "Start time in HH:MM format (24-hour)",
+                                        "type": "string",
+                                        "format": "time",
+                                        "example": "14:00"
+                                    },
+                                    "end_time": {
+                                        "description": "End time in HH:MM format (24-hour), must be after start_time",
+                                        "type": "string",
+                                        "format": "time",
+                                        "example": "15:30"
+                                    },
+                                    "price": {
+                                        "description": "Price per session (nullable, minimum 0)",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 50,
+                                        "nullable": true
+                                    },
+                                    "description": {
+                                        "description": "Slot description",
+                                        "type": "string",
+                                        "example": "This session covers advanced calculus topics including derivatives and integrals.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Slot updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot updated successfully"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "teacher_id": {
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "title": {
+                                                    "type": "string",
+                                                    "example": "Advanced Mathematics Session"
+                                                },
+                                                "subject_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "from_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2024-12-01"
+                                                },
+                                                "to_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2024-12-31"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "14:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "15:30:00"
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 50
+                                                },
+                                                "is_booked": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "Advanced calculus session"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-11-16T10:30:00.000000Z"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-11-16T12:45:00.000000Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Cannot update - slot has bookings",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cannot update a booked slot"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - not the slot owner",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthorized"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Slot not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Slot not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The end time must be a time after start time."
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "end_time": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The end time must be a time after start time."
+                                                    }
+                                                },
+                                                "to_date": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The to date must be a date after or equal to from date."
+                                                    }
+                                                },
+                                                "subject_id": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The selected subject id is invalid."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Teacher deletes a slot",
+                "operationId": "577133cd97c2aa0b4f828aaaac5d326b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Slot deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "teacher/in-person-slots/booked": {
+            "get": {
+                "tags": [
+                    "In Person Slots"
+                ],
+                "summary": "Teacher views their own booked slots",
+                "operationId": "0177dc42f395251307205112867bcb3b",
+                "responses": {
+                    "200": {
+                        "description": "Teacher's slots"
+                    }
+                }
+            }
+        },
         "/api/notifications": {
             "get": {
                 "tags": [
@@ -5602,6 +6864,10 @@
         {
             "name": "Course Requests",
             "description": "API for handling course request submissions, listing, and approvals"
+        },
+        {
+            "name": "In Person Slots",
+            "description": "API Endpoints for Available Slots and Booking"
         },
         {
             "name": "Notifications",

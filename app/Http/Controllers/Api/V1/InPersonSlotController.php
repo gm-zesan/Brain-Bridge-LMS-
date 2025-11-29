@@ -3,42 +3,35 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Mail\SessionBookedMail;
-use Illuminate\Http\Request;
-use App\Models\AvailableSlot;
-use App\Models\LessonSession;
-use App\Services\MeetingService;
+use App\Models\InPersonSlot;
+use App\Models\InPersonSlotBook;
 use App\Services\PaymentService;
+use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
-use Carbon\CarbonPeriod;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * @OA\Tag(
- *     name="Available Slots",
+ *     name="In Person Slots",
  *     description="API Endpoints for Available Slots and Booking"
  * )
  */
-class AvailableSlotController extends Controller
+class InPersonSlotController extends Controller
 {
-    protected $meetingService;
     protected $paymentService;
 
-    public function __construct(MeetingService $meetingService, PaymentService $paymentService)
+    public function __construct(PaymentService $paymentService)
     {
-        $this->meetingService = $meetingService;
         $this->paymentService = $paymentService;
     }
-
-
+    
     /**
      * @OA\Get(
-     *     path="/api/slots",
+     *     path="/api/in-person-slots",
      *     summary="Get all available slots (filter by teacher/date)",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *     @OA\Parameter(
      *         name="teacher_id",
      *         in="query",
@@ -80,7 +73,7 @@ class AvailableSlotController extends Controller
     */
     public function index(Request $request)
     {
-        $query = AvailableSlot::with('teacher:id,name,email', 'subject:id,name');
+        $query = InPersonSlot::with('teacher:id,name,email', 'subject:id,name');
         
         // Filter by teacher
         if ($request->filled('teacher_id')) {
@@ -107,7 +100,7 @@ class AvailableSlotController extends Controller
             $allDates = collect($period)->map(fn($d) => $d->format('Y-m-d'));
 
             // Get booked dates
-            $bookedDates = LessonSession::where('slot_id', $slot->id)
+            $bookedDates = InPersonSlotBook::where('slot_id', $slot->id)
                 ->pluck('scheduled_date');
 
             // If all dates are booked, hide this slot
@@ -127,7 +120,6 @@ class AvailableSlotController extends Controller
                 'to_date' => $slot->to_date,
                 'time' => date('g:i A', strtotime($slot->start_time)) . ' - ' . date('g:i A', strtotime($slot->end_time)),
                 'available_seats' => $slot->max_students - $slot->booked_count,
-                'type' => $slot->type,
                 'price' => $slot->price,
             ];
         }));
@@ -142,9 +134,9 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/api/slots/{id}",
+     *     path="/api/in-person-slots/{id}",
      *     summary="Get full details of a slot",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -170,7 +162,6 @@ class AvailableSlotController extends Controller
      *                     @OA\Property(property="end_time", type="string")
      *                 )
      *             ),
-     *             @OA\Property(property="type", type="string"),
      *             @OA\Property(property="price", type="number", format="float"),
      *             @OA\Property(property="description", type="string")
      *         )
@@ -179,7 +170,7 @@ class AvailableSlotController extends Controller
     */
     public function show($id)
     {
-        $slot = AvailableSlot::with('teacher:id,name,email', 'subject:id,name')
+        $slot = InPersonSlot::with('teacher:id,name,email', 'subject:id,name')
             ->findOrFail($id);
 
         $fromDate = $slot->from_date < now()->toDateString()
@@ -189,14 +180,13 @@ class AvailableSlotController extends Controller
         $from = Carbon::parse($fromDate);
         $to = Carbon::parse($slot->to_date);
 
-        // FIX: If from_date > to_date → swap
         if ($from->gt($to)) {
             [$from, $to] = [$to, $from];
         }
 
         $dates = $this->generateDateRange($from->toDateString(), $to->toDateString());
 
-        $bookedSessions = LessonSession::where('slot_id', $slot->id)
+        $bookedSessions = InPersonSlotBook::where('slot_id', $slot->id)
             ->get(['scheduled_date', 'scheduled_start_time', 'scheduled_end_time']);
 
         $dailyAvailability = [];
@@ -206,11 +196,8 @@ class AvailableSlotController extends Controller
                 ->where('scheduled_date', $date)
                 ->count();
 
-            $availableSeats = $slot->max_students - $bookedCount;
-
             $dailyAvailability[$date] = [
                 'booked' => $bookedCount,
-                'available' => max($availableSeats, 0),
             ];
         }
 
@@ -224,7 +211,6 @@ class AvailableSlotController extends Controller
             'to_date' => $to->toDateString(),
             'start_time' => $slot->start_time,
             'end_time' => $slot->end_time,
-            'type' => $slot->type,
             'price' => $slot->price,
             'description' => $slot->description,
             'daily_available_seats' => $dailyAvailability,
@@ -252,11 +238,11 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Post(
-     *     path="/api/slot/bookings/intent",
+     *     path="/api/in-person-slot/bookings/intent",
      *     summary="Create booking payment intent",
      *     description="Creates a Stripe payment intent for booking a slot. Returns client_secret for frontend payment processing.",
-     *     operationId="createInPersonBookingIntent",
-     *     tags={"Available Slots"},
+     *     operationId="createBookingIntent",
+     *     tags={"In Person Slots"},
      *     @OA\RequestBody(
      *         required=true,
      *         description="Slot ID and schedule date for booking",
@@ -354,7 +340,7 @@ class AvailableSlotController extends Controller
         ]);
 
         try {
-            $slot = AvailableSlot::with('teacher', 'subject')->findOrFail($validated['slot_id']);
+            $slot = InPersonSlot::with('teacher', 'subject')->findOrFail($validated['slot_id']);
 
             // Check if price is zero (free session)
             if ($slot->price <= 0) {
@@ -372,9 +358,11 @@ class AvailableSlotController extends Controller
                 ]);
             }
 
+            $price = $slot->price;
+
             // Create payment intent
             $paymentIntent = $this->paymentService->createPaymentIntent(
-                $slot->price,
+                $price,
                 'usd', // or get from config/slot
                 [
                     'slot_id' => $slot->id,
@@ -404,7 +392,7 @@ class AvailableSlotController extends Controller
                     'scheduled_date' => $validated['scheduled_date'],
                     'start_time' => $slot->start_time,
                     'end_time' => $slot->end_time,
-                    'price' => $slot->price,
+                    'price' => $price,
                 ]
             ]);
 
@@ -417,11 +405,10 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Post(
-     *     path="/api/slot/bookings/confirm",
+     *     path="/api/in-person-slot/bookings/confirm",
      *     summary="Confirm booking after payment",
-     *     description="Confirms and finalizes the booking after successful payment. Creates lesson session, generates Google Meet link, and sends confirmation emails. For free sessions, payment_intent_id is not required.",
-     *     operationId="confirmInPersonBooking",
-     *     tags={"Available Slots"},
+     *     operationId="confirmBooking",
+     *     tags={"In Person Slots"},
      *     @OA\RequestBody(
      *         required=true,
      *         description="Booking confirmation data",
@@ -541,7 +528,7 @@ class AvailableSlotController extends Controller
 
         DB::beginTransaction();
         // Lock the slot to prevent race conditions
-        $slot = AvailableSlot::where('id', $validated['slot_id'])
+        $slot = InPersonSlot::where('id', $validated['slot_id'])
             ->with('teacher', 'subject')
             ->lockForUpdate()
             ->firstOrFail();
@@ -583,13 +570,7 @@ class AvailableSlotController extends Controller
             'scheduled_start_time' => $validated['scheduled_date'] . ' ' . $slot->start_time,
             'scheduled_end_time' => $validated['scheduled_date'] . ' ' . $slot->end_time,
 
-            'session_type' => $slot->type,
             'status' => 'scheduled',
-
-            'meeting_platform' => 'google_meet',
-            'meeting_link' => $slot->meeting_link,
-            'meeting_id' => null,
-
             'price' => (float) $amountPaid,
             'payment_status' => $paymentStatus,
             'payment_intent_id' => $paymentIntentId,
@@ -603,14 +584,11 @@ class AvailableSlotController extends Controller
 
 
         // Create lesson session
-        $session = LessonSession::create($data);
+        $session = InPersonSlotBook::create($data);
 
         // Update slot
-        $slot->increment('booked_count');
-        if ($slot->booked_count >= $slot->max_students) {
-            $slot->update(['is_booked' => true]);
-        }
-
+        $slot->update(['is_booked' => true]);
+        
         DB::commit();
 
         // Send emails AFTER commit
@@ -622,7 +600,6 @@ class AvailableSlotController extends Controller
             'message' => 'Booking confirmed successfully',
             'data' => [
                 'session_id' => $session->id,
-                'meeting_link' => $slot->meeting_link,
                 'payment_status' => $paymentStatus,
                 'amount_paid' => $amountPaid,
             ]
@@ -631,86 +608,10 @@ class AvailableSlotController extends Controller
 
 
     /**
-     * Cancel a booking
-    */
-    public function cancelBooking(Request $request, $sessionId)
-    {
-        try {
-            $session = LessonSession::with('slot')->findOrFail($sessionId);
-
-            // Check authorization
-            if ($session->student_id !== Auth::id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ], 403);
-            }
-
-            // Check if can be cancelled (at least 24 hours before)
-            if ($session->scheduled_start_time->diffInHours(now()) < 24) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bookings can only be cancelled at least 24 hours in advance'
-                ], 400);
-            }
-
-            // Check if already cancelled or completed
-            if (in_array($session->status, ['cancelled', 'completed'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This booking cannot be cancelled'
-                ], 400);
-            }
-
-            DB::beginTransaction();
-
-            // Process refund if paid
-            if ($session->payment_status === 'paid' && $session->payment_intent_id) {
-                $refund = $this->paymentService->refundPayment($session->payment_intent_id);
-                
-                if ($refund['success']) {
-                    $session->update([
-                        'payment_status' => 'refunded',
-                        'refund_id' => $refund['refund_id'],
-                        'refunded_at' => now(),
-                    ]);
-                }
-            }
-
-            // Update session status
-            $session->update([
-                'status' => 'cancelled',
-                'cancelled_at' => now(),
-                'cancellation_reason' => $request->input('reason', 'Cancelled by student'),
-            ]);
-
-            // Decrement slot booked count
-            $session->slot->decrement('booked_count');
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Booking cancelled successfully',
-                'refund_status' => $session->payment_status
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to cancel booking'
-            ], 500);
-        }
-    }
-
-
-    /**
      * @OA\Get(
-     *     path="/student/booked-slots",
+     *     path="/student/booked-in-person-slots",
      *     summary="Get list of slots booked by the authenticated student",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *
      *     @OA\Response(
      *         response=200,
@@ -781,7 +682,7 @@ class AvailableSlotController extends Controller
 
     public function studentBookedSlots()
     {
-        $slots = LessonSession::with('slot.teacher', 'slot.subject')
+        $slots = InPersonSlotBook::with('slot.teacher', 'slot.subject')
             ->where('student_id', Auth::id())
             ->orderBy('scheduled_date', 'desc')
             ->paginate(10);
@@ -793,9 +694,9 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Post(
-     *     path="/api/teacher/slots",
+     *     path="/api/teacher/in-person-slots",
      *     summary="Teacher creates one or more slots",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -809,12 +710,9 @@ class AvailableSlotController extends Controller
      *                 @OA\Items(
      *                     @OA\Property(property="start_time", type="string", example="09:00"),
      *                     @OA\Property(property="end_time", type="string", example="11:00"),
-     *                     @OA\Property(property="meeting_link", type="string", example="https://meet.google.com/abc-defg-hij")
      *                 )
      *             ),
-     *             @OA\Property(property="type", type="string", enum={"one_to_one","group"}),
      *             @OA\Property(property="price", type="number", example=50),
-     *             @OA\Property(property="max_students", type="integer", example=1),
      *             @OA\Property(property="description", type="string")
      *         )
      *     ),
@@ -837,11 +735,8 @@ class AvailableSlotController extends Controller
      *                     @OA\Property(property="to_date", type="string", format="date"),
      *                     @OA\Property(property="start_time", type="string"),
      *                     @OA\Property(property="end_time", type="string"),
-     *                     @OA\Property(property="meeting_link", type="string"),
-     *                     @OA\Property(property="type", type="string"),
      *                     @OA\Property(property="price", type="number"),
-     *                     @OA\Property(property="description", type="string"),
-     *                     @OA\Property(property="max_students", type="integer")
+     *                     @OA\Property(property="description", type="string")
      *                 )
      *             )
      *         )
@@ -859,10 +754,7 @@ class AvailableSlotController extends Controller
             'slots' => 'required|array|min:1',
             'slots.*.start_time' => 'required|date_format:H:i',
             'slots.*.end_time' => 'required|date_format:H:i|after:slots.*.start_time',
-            'slots.*.meeting_link' => 'required|string',
-            'type' => 'required|in:one_to_one,group',
             'price' => 'nullable|numeric|min:0',
-            'max_students' => 'required_if:type,group|integer|min:1',
             'description' => 'nullable|string',
         ]);
 
@@ -870,7 +762,7 @@ class AvailableSlotController extends Controller
         $created = [];
 
         foreach ($validated['slots'] as $slot) {
-            $created[] = AvailableSlot::create([
+            $created[] = InPersonSlot::create([
                 'title' => $validated['title'],
                 'teacher_id' => Auth::id(),
                 'subject_id' => $validated['subject_id'],
@@ -878,11 +770,8 @@ class AvailableSlotController extends Controller
                 'to_date' => $validated['to_date'],
                 'start_time' => $slot['start_time'],
                 'end_time' => $slot['end_time'],
-                'meeting_link' => $slot['meeting_link'],
-                'type' => $validated['type'],
                 'price' => $validated['price'] ?? 0,
                 'description' => $validated['description'] ?? null,
-                'max_students' => $validated['type'] === 'group' ? $validated['max_students'] : 1,
             ]);
         }
 
@@ -895,11 +784,11 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Put(
-     *     path="/api/teacher/slots/{id}",
+     *     path="/api/teacher/in-person-slots/{id}",
      *     summary="Update an available slot",
      *     description="Teacher updates their own slot. Cannot update if the slot has bookings. All fields are optional.",
-     *     operationId="updateInPersonSlot",
-     *     tags={"Available Slots"},
+     *     operationId="updateSlot",
+     *     tags={"In Person Slots"},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -955,31 +844,12 @@ class AvailableSlotController extends Controller
      *                 example="15:30"
      *             ),
      *             @OA\Property(
-     *                 property="meeting_link",
-     *                 type="string",
-     *                 description="Meeting link URL",
-     *                 example="https://meet.google.com/abc-defg-hij"
-     *             ),
-     *             @OA\Property(
-     *                 property="type",
-     *                 type="string",
-     *                 enum={"one_to_one", "group"},
-     *                 description="Session type",
-     *                 example="one_to_one"
-     *             ),
-     *             @OA\Property(
      *                 property="price",
      *                 type="number",
      *                 format="float",
      *                 description="Price per session (nullable, minimum 0)",
      *                 example=50.00,
      *                 nullable=true
-     *             ),
-     *             @OA\Property(
-     *                 property="max_students",
-     *                 type="integer",
-     *                 description="Maximum number of students (minimum 1)",
-     *                 example=1
      *             ),
      *             @OA\Property(
      *                 property="description",
@@ -1007,11 +877,7 @@ class AvailableSlotController extends Controller
      *                 @OA\Property(property="to_date", type="string", format="date", example="2024-12-31"),
      *                 @OA\Property(property="start_time", type="string", example="14:00:00"),
      *                 @OA\Property(property="end_time", type="string", example="15:30:00"),
-     *                @OA\Property(property="meeting_link", type="string", example="https://meet.google.com/abc-defg-hij"),
-     *                 @OA\Property(property="type", type="string", example="one_to_one"),
      *                 @OA\Property(property="price", type="number", format="float", example=50.00),
-     *                 @OA\Property(property="max_students", type="integer", example=5),
-     *                 @OA\Property(property="booked_count", type="integer", example=0),
      *                 @OA\Property(property="is_booked", type="boolean", example=false),
      *                 @OA\Property(property="description", type="string", example="Advanced calculus session"),
      *                 @OA\Property(property="created_at", type="string", format="date-time", example="2024-11-16T10:30:00.000000Z"),
@@ -1076,16 +942,8 @@ class AvailableSlotController extends Controller
      * )
     */
 
-    public function update(Request $request, AvailableSlot $availableSlot)
+    public function update(Request $request, InPersonSlot $inPersonSlot)
     {
-        if ($availableSlot->teacher_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        if ($availableSlot->booked_count > 0) {
-            return response()->json(['message' => 'Cannot update a booked slot'], 400);
-        }
-
         $validated = $request->validate([
             'title' => 'sometimes|string',
             'subject_id' => 'sometimes|exists:subjects,id',
@@ -1093,27 +951,24 @@ class AvailableSlotController extends Controller
             'to_date' => 'sometimes|date|after_or_equal:from_date',
             'start_time' => 'sometimes|date_format:H:i',
             'end_time' => 'sometimes|date_format:H:i|after:start_time',
-            'meeting_link' => 'sometimes|string',
-            'type' => 'sometimes|in:one_to_one,group',
             'price' => 'nullable|numeric|min:0',
-            'max_students' => 'required|integer|min:1',
             'description' => 'nullable|string',
         ]);
 
-        $availableSlot->update($validated);
+        $inPersonSlot->update($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Slot updated successfully',
-            'data' => $availableSlot
+            'data' => $inPersonSlot
         ]);
     }
 
     /**
      * @OA\Delete(
-     *     path="/api/teacher/slots/{id}",
+     *     path="/api/teacher/in-person-slots/{id}",
      *     summary="Teacher deletes a slot",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -1131,16 +986,9 @@ class AvailableSlotController extends Controller
      * )
     */
 
-    public function destroy(AvailableSlot $availableSlot)
+    public function destroy(InPersonSlot $inPersonSlot)
     {
-        if ($availableSlot->teacher_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        if ($availableSlot->booked_count > 0) {
-            return response()->json(['message' => 'Cannot delete a booked slot'], 400);
-        }
-
-        $availableSlot->delete();
+        $inPersonSlot->delete();
 
         return response()->json([
             'success' => true,
@@ -1150,9 +998,9 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/api/teacher/slots",
+     *     path="/api/teacher/in-person-slots",
      *     summary="Teacher views their own slots",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *     @OA\Response(
      *         response=200,
      *         description="Teacher's slots",
@@ -1161,7 +1009,7 @@ class AvailableSlotController extends Controller
     */
     public function mySlots()
     {
-        $query = AvailableSlot::where('teacher_id', Auth::id())
+        $query = InPersonSlot::where('teacher_id', Auth::id())
                 ->with('subject')
                 ->orderBy('from_date', 'asc')
                 ->orderBy('start_time', 'asc');
@@ -1178,9 +1026,9 @@ class AvailableSlotController extends Controller
 
     /**
      * @OA\Get(
-     *     path="teacher/slots/booked",
+     *     path="teacher/in-person-slots/booked",
      *     summary="Teacher views their own booked slots",
-     *     tags={"Available Slots"},
+     *     tags={"In Person Slots"},
      *     @OA\Response(
      *         response=200,
      *         description="Teacher's slots",
@@ -1190,7 +1038,7 @@ class AvailableSlotController extends Controller
 
     public function bookedSlots()
     {
-        $slots = AvailableSlot::where('teacher_id', Auth::id())
+        $slots = InPersonSlot::where('teacher_id', Auth::id())
             ->where('is_booked', true)
             ->with(['subject', 'session', 'session.student'])
             ->orderBy('from_date', 'asc')

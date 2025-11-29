@@ -255,4 +255,13 @@ class CourseRequestController extends Controller
 
         return response()->json(['message' => 'Course request rejected']);
     }
+
+
+    public function myRequestsDestroy($id)
+    {
+        $requestData = CourseRequest::findOrFail($id);
+        $requestData->delete();
+
+        return response()->json(['message' => 'Course request deleted']);
+    }
 }

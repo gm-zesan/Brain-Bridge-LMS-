@@ -121,6 +121,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Course Request Routes
     Route::get('/my-course-requests', [CourseRequestController::class, 'myRequests']);
+    Route::delete('/my-course-requests-delete/{id}', [CourseRequestController::class, 'myRequestsDestroy']);
     Route::post('/course-requests', [CourseRequestController::class, 'store']);
     Route::get('/course-requests', [CourseRequestController::class, 'index']);
     Route::post('/course-request/{id}/approve', [CourseRequestController::class, 'approve']);

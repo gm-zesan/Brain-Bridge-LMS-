@@ -1193,26 +1193,26 @@ class CourseController extends Controller
         // Validate request
         $validated = $request->validate([
             // Course validation
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
+            'title' => 'sometimes|string|max:255',
+            'description' => 'sometimes|string',
             'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120',
-            'subject_id' => 'required|exists:subjects,id',
-            'price' => 'required|numeric|min:0',
+            'subject_id' => 'sometimes|exists:subjects,id',
+            'price' => 'sometimes|numeric|min:0',
             'old_price' => 'nullable|numeric|min:0',
             'is_published' => 'nullable|boolean',
 
             // Modules validation
-            'modules' => 'required|array|min:1',
+            'modules' => 'sometimes|array|min:1',
             'modules.*.id' => 'nullable|exists:modules,id',
-            'modules.*.title' => 'required|string|max:255',
+            'modules.*.title' => 'sometimes|string|max:255',
             'modules.*.description' => 'nullable|string',
-            'modules.*.order_index' => 'required|integer|min:1',
+            'modules.*.order_index' => 'sometimes|integer|min:1',
             'modules.*.action' => 'nullable|string|in:keep,delete',
 
             // Videos validation
             'modules.*.videos' => 'nullable|array',
             'modules.*.videos.*.id' => 'nullable|exists:video_lessons,id',
-            'modules.*.videos.*.title' => 'required|string|max:255',
+            'modules.*.videos.*.title' => 'sometimes|string|max:255',
             'modules.*.videos.*.description' => 'nullable|string',
             'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
             'modules.*.videos.*.file' => 'nullable|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:102400', // 100MB
@@ -1227,13 +1227,14 @@ class CourseController extends Controller
 
             // Update course data
             $course->update([
-                'title' => $validated['title'],
-                'description' => $validated['description'],
-                'subject_id' => $validated['subject_id'],
-                'price' => $validated['price'],
-                'old_price' => $validated['old_price'] ?? null,
+                'title' => $validated['title'] ?? $course->title,
+                'description' => $validated['description'] ?? $course->description,
+                'subject_id' => $validated['subject_id'] ?? $course->subject_id,
+                'price' => $validated['price'] ?? $course->price,
+                'old_price' => $validated['old_price'] ?? $course->old_price,
                 'is_published' => $validated['is_published'] ?? $course->is_published,
             ]);
+
 
             // Handle thumbnail update
             if ($request->hasFile('thumbnail_url')) {
@@ -1255,7 +1256,7 @@ class CourseController extends Controller
             $existingModuleIds = $course->modules->pluck('id')->toArray();
             $keptModuleIds = [];
 
-            foreach ($validated['modules'] as $moduleData) {
+            foreach ($validated['modules'] ?? [] as $moduleData) {
                 // Check if module should be deleted
                 if (isset($moduleData['action']) && $moduleData['action'] === 'delete') {
                     if (!empty($moduleData['id'])) {
@@ -1299,7 +1300,7 @@ class CourseController extends Controller
                     $existingVideoIds = $module->videoLessons->pluck('id')->toArray();
                     $keptVideoIds = [];
 
-                    foreach ($moduleData['videos'] as $videoData) {
+                    foreach ($moduleData['videos'] ?? [] as $videoData) {
                         $action = $videoData['action'] ?? 'keep';
 
                         // Delete video

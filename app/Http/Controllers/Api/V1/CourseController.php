@@ -1046,70 +1046,103 @@ class CourseController extends Controller
     /**
      * @OA\Put(
      *     path="/api/courses/{courseId}",
+     *     summary="Update a course with modules and videos",
+     *     description="Update course details, modules, and video lessons. Supports creating, updating, and deleting nested resources.",
+     *     operationId="updateCourse",
      *     tags={"Courses"},
-     *     summary="Update course with modules and videos",
-     *     description="Updates an existing course including its modules and videos. Supports background video upload for new/replaced videos. Can add, update, or delete modules and videos. Only the course owner can update.",
      *     
      *     @OA\Parameter(
-     *         name="courseId",
+     *         name="id",
      *         in="path",
+     *         description="Course ID",
      *         required=true,
-     *         description="ID of the course to update",
      *         @OA\Schema(type="integer", example=1)
      *     ),
+     *     
      *     @OA\RequestBody(
      *         required=true,
-     *         description="Course update data with modules and videos. Use multipart/form-data for file uploads.",
+     *         description="Course update data with modules and videos",
      *         @OA\MediaType(
-     *             mediaType="multipart/form-data",
+     *             mediaType="application/json",
      *             @OA\Schema(
-     *                 required={"title", "description", "subject_id", "price", "modules"},
-     *                 @OA\Property(property="title", type="string", maxLength=255, example="Complete Web Development Course - Updated"),
-     *                 @OA\Property(property="description", type="string", example="Learn full-stack web development from scratch with updated content"),
-     *                 @OA\Property(property="thumbnail_url", type="string", format="binary", description="New course thumbnail image (optional, jpeg/jpg/png/gif, max 5MB)"),
+     *                 @OA\Property(property="title", type="string", maxLength=255, example="Complete Adobe Illustrator Course 2024"),
+     *                 @OA\Property(property="description", type="string", example="Master Adobe Illustrator from beginner to advanced"),
      *                 @OA\Property(property="subject_id", type="integer", example=1),
-     *                 @OA\Property(property="price", type="number", format="float", example=129.99),
-     *                 @OA\Property(property="old_price", type="number", format="float", example=199.99, nullable=true),
+     *                 @OA\Property(property="price", type="number", format="float", example=149.99),
+     *                 @OA\Property(property="old_price", type="number", format="float", nullable=true, example=299.99),
      *                 @OA\Property(property="is_published", type="boolean", example=true),
+     *                 
      *                 @OA\Property(
      *                     property="modules",
      *                     type="array",
-     *                     description="Array of modules. Include 'id' for existing modules, omit for new ones.",
+     *                     description="Array of modules. Include 'id' to update, omit to create new. Modules not in array will be deleted.",
      *                     @OA\Items(
      *                         type="object",
-     *                         required={"title", "order_index"},
-     *                         @OA\Property(property="id", type="integer", example=1, description="Module ID (required for existing modules)"),
-     *                         @OA\Property(property="title", type="string", maxLength=255, example="Advanced JavaScript"),
-     *                         @OA\Property(property="description", type="string", example="Deep dive into JavaScript", nullable=true),
+     *                         @OA\Property(property="id", type="integer", nullable=true, example=4, description="Module ID for update, null for create"),
+     *                         @OA\Property(property="title", type="string", maxLength=255, example="Introduction to Illustrator"),
+     *                         @OA\Property(property="description", type="string", nullable=true, example="Learn the basics"),
      *                         @OA\Property(property="order_index", type="integer", minimum=1, example=1),
-     *                         @OA\Property(property="action", type="string", enum={"keep", "delete"}, example="keep", description="Action to perform on this module"),
+     *                         
      *                         @OA\Property(
      *                             property="videos",
      *                             type="array",
-     *                             description="Array of videos. Include 'id' for existing videos, omit for new ones.",
+     *                             description="Array of video lessons. Include 'id' to update, omit to create new. Videos not in array will be deleted.",
      *                             @OA\Items(
      *                                 type="object",
-     *                                 required={"title"},
-     *                                 @OA\Property(property="id", type="integer", example=5, description="Video ID (required for existing videos)"),
-     *                                 @OA\Property(property="title", type="string", maxLength=255, example="ES6 Features"),
-     *                                 @OA\Property(property="description", type="string", example="Learn about ES6 syntax", nullable=true),
-     *                                 @OA\Property(property="duration_hours", type="number", format="float", example=2.5, nullable=true),
-     *                                 @OA\Property(property="file", type="string", format="binary", description="New/replacement video file (optional, mp4/avi/mov/quicktime, max 500MB)"),
-     *                                 @OA\Property(property="is_published", type="boolean", example=true),
-     *                                 @OA\Property(property="action", type="string", enum={"keep", "update", "delete"}, example="keep", description="keep=no changes, update=replace video, delete=remove video")
+     *                                 @OA\Property(property="id", type="integer", nullable=true, example=5, description="Video ID for update, null for create"),
+     *                                 @OA\Property(property="title", type="string", maxLength=255, example="Getting Started"),
+     *                                 @OA\Property(property="description", type="string", nullable=true, example="Introduction to the interface"),
+     *                                 @OA\Property(property="duration_hours", type="number", format="float", nullable=true, example=2.5),
+     *                                 @OA\Property(property="is_published", type="boolean", nullable=true, example=true)
      *                             )
      *                         )
      *                     )
      *                 )
      *             )
+     *         ),
+     *         
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="title", type="string", maxLength=255, example="Complete Adobe Illustrator Course 2024"),
+     *                 @OA\Property(property="description", type="string", example="Master Adobe Illustrator from beginner to advanced"),
+     *                 @OA\Property(property="thumbnail_url", type="string", format="binary", description="Course thumbnail image (jpeg, jpg, png, gif, max 5MB)"),
+     *                 @OA\Property(property="subject_id", type="integer", example=1),
+     *                 @OA\Property(property="price", type="number", format="float", example=149.99),
+     *                 @OA\Property(property="old_price", type="number", format="float", example=299.99),
+     *                 @OA\Property(property="is_published", type="boolean", example=true),
+     *                 
+     *                 @OA\Property(property="modules[0][id]", type="integer", example=4, description="Module ID for update"),
+     *                 @OA\Property(property="modules[0][title]", type="string", example="Module 1 Updated"),
+     *                 @OA\Property(property="modules[0][description]", type="string", example="Updated description"),
+     *                 @OA\Property(property="modules[0][order_index]", type="integer", example=1),
+     *                 
+     *                 @OA\Property(property="modules[0][videos][0][id]", type="integer", example=5, description="Video ID for update"),
+     *                 @OA\Property(property="modules[0][videos][0][title]", type="string", example="Existing Video Updated"),
+     *                 @OA\Property(property="modules[0][videos][0][description]", type="string", example="This video already exists"),
+     *                 @OA\Property(property="modules[0][videos][0][duration_hours]", type="number", format="float", example=3.5),
+     *                 @OA\Property(property="modules[0][videos][0][is_published]", type="boolean", example=true),
+     *                 @OA\Property(property="modules[0][videos][0][file]", type="string", format="binary", description="New video file (optional for update)"),
+     *                 
+     *                 @OA\Property(property="modules[0][videos][1][title]", type="string", example="Brand New Video", description="No ID means create new"),
+     *                 @OA\Property(property="modules[0][videos][1][description]", type="string", example="This is a completely new video"),
+     *                 @OA\Property(property="modules[0][videos][1][duration_hours]", type="number", format="float", example=2.0),
+     *                 @OA\Property(property="modules[0][videos][1][is_published]", type="boolean", example=true),
+     *                 @OA\Property(property="modules[0][videos][1][file]", type="string", format="binary", description="Video file (required for new videos, mp4/avi/mov, max 100MB)"),
+     *                 
+     *                 @OA\Property(property="modules[1][title]", type="string", example="New Module", description="No ID means create new module"),
+     *                 @OA\Property(property="modules[1][description]", type="string", example="A brand new module"),
+     *                 @OA\Property(property="modules[1][order_index]", type="integer", example=2)
+     *             )
      *         )
      *     ),
+     *     
      *     @OA\Response(
      *         response=200,
      *         description="Course updated successfully",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="message", type="string", example="Course updated successfully. 2 video(s) are being uploaded in the background."),
+     *             @OA\Property(property="message", type="string", example="Course updated successfully."),
      *             @OA\Property(
      *                 property="data",
      *                 type="object",
@@ -1117,26 +1150,90 @@ class CourseController extends Controller
      *                     property="course",
      *                     type="object",
      *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="title", type="string", example="Complete Web Development Course - Updated"),
-     *                     @OA\Property(property="description", type="string", example="Learn full-stack web development"),
+     *                     @OA\Property(property="title", type="string", example="Complete Adobe Illustrator Course 2024"),
+     *                     @OA\Property(property="description", type="string", example="Master Adobe Illustrator from beginner to advanced"),
      *                     @OA\Property(property="thumbnail_url", type="string", example="thumbnails/1234567890_abc123.jpg"),
      *                     @OA\Property(property="subject_id", type="integer", example=1),
-     *                     @OA\Property(property="price", type="number", format="float", example=129.99),
-     *                     @OA\Property(property="old_price", type="number", format="float", example=199.99),
+     *                     @OA\Property(property="price", type="number", format="float", example=149.99),
+     *                     @OA\Property(property="old_price", type="number", format="float", example=299.99),
      *                     @OA\Property(property="is_published", type="boolean", example=true),
-     *                     @OA\Property(property="teacher_id", type="integer", example=10)
+     *                     @OA\Property(property="created_at", type="string", format="date-time", example="2024-01-15T10:30:00.000000Z"),
+     *                     @OA\Property(property="updated_at", type="string", format="date-time", example="2024-01-20T14:45:00.000000Z"),
+     *                     
+     *                     @OA\Property(
+     *                         property="subject",
+     *                         type="object",
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="name", type="string", example="Design")
+     *                     ),
+     *                     
+     *                     @OA\Property(
+     *                         property="modules",
+     *                         type="array",
+     *                         @OA\Items(
+     *                             type="object",
+     *                             @OA\Property(property="id", type="integer", example=4),
+     *                             @OA\Property(property="course_id", type="integer", example=1),
+     *                             @OA\Property(property="title", type="string", example="Introduction to Illustrator"),
+     *                             @OA\Property(property="description", type="string", example="Learn the basics"),
+     *                             @OA\Property(property="order_index", type="integer", example=1),
+     *                             @OA\Property(property="created_at", type="string", format="date-time"),
+     *                             @OA\Property(property="updated_at", type="string", format="date-time"),
+     *                             
+     *                             @OA\Property(
+     *                                 property="video_lessons",
+     *                                 type="array",
+     *                                 @OA\Items(
+     *                                     type="object",
+     *                                     @OA\Property(property="id", type="integer", example=5),
+     *                                     @OA\Property(property="module_id", type="integer", example=4),
+     *                                     @OA\Property(property="title", type="string", example="Getting Started"),
+     *                                     @OA\Property(property="description", type="string", example="Introduction to the interface"),
+     *                                     @OA\Property(property="duration_hours", type="number", format="float", example=2.5),
+     *                                     @OA\Property(property="video_path", type="string", example="videos/1234567890_xyz789.mp4"),
+     *                                     @OA\Property(property="filename", type="string", example="1234567890_xyz789.mp4"),
+     *                                     @OA\Property(property="file_size", type="integer", example=104857600),
+     *                                     @OA\Property(property="mime_type", type="string", example="video/mp4"),
+     *                                     @OA\Property(property="is_published", type="boolean", example=true),
+     *                                     @OA\Property(property="created_at", type="string", format="date-time"),
+     *                                     @OA\Property(property="updated_at", type="string", format="date-time")
+     *                                 )
+     *                             )
+     *                         )
+     *                     )
      *                 ),
-     *                 @OA\Property(property="modules_count", type="integer", example=5),
-     *                 @OA\Property(property="videos_queued", type="integer", example=2, description="Number of videos being uploaded in background"),
-     *                 @OA\Property(property="status", type="string", example="Some videos are being processed. Check upload status endpoint.")
+     *                 
+     *                 @OA\Property(
+     *                     property="modules",
+     *                     type="array",
+     *                     description="Array of processed modules",
+     *                     @OA\Items(type="object")
+     *                 ),
+     *                 
+     *                 @OA\Property(
+     *                     property="videos",
+     *                     type="array",
+     *                     description="Array of processed videos",
+     *                     @OA\Items(type="object")
+     *                 )
      *             )
      *         )
      *     ),
+     *     
      *     @OA\Response(
-     *         response=400,
+     *         response=404,
+     *         description="Course not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Update failed: No query results for model [App\\Models\\Course] 999")
+     *         )
+     *     ),
+     *     
+     *     @OA\Response(
+     *         response=422,
      *         description="Validation error",
      *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="The given data was invalid."),
+     *             @OA\Property(property="message", type="string", example="The title field is required. (and 2 more errors)"),
      *             @OA\Property(
      *                 property="errors",
      *                 type="object",
@@ -1144,55 +1241,31 @@ class CourseController extends Controller
      *                     property="title",
      *                     type="array",
      *                     @OA\Items(type="string", example="The title field is required.")
+     *                 ),
+     *                 @OA\Property(
+     *                     property="price",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The price must be at least 0.")
      *                 )
      *             )
      *         )
      *     ),
-     *     @OA\Response(
-     *         response=401,
-     *         description="Unauthenticated",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Unauthenticated")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=403,
-     *         description="Forbidden - Not the course owner",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Unauthorized to update this course")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=404,
-     *         description="Course not found",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="message", type="string", example="Course not found")
-     *         )
-     *     ),
+     *     
      *     @OA\Response(
      *         response=500,
      *         description="Server error",
      *         @OA\JsonContent(
      *             @OA\Property(property="success", type="boolean", example=false),
-     *             @OA\Property(property="message", type="string", example="Update failed: Database connection error")
+     *             @OA\Property(property="message", type="string", example="Update failed: Video file is required when creating new videos")
      *         )
      *     )
      * )
-    */
-    public function update(Request $request, Course $course)
-    {
-        // Check authorization
-        if ($course->teacher_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to update this course'
-            ], 403);
-        }
+     */
 
+    public function update(Request $request, $id)
+    {
         // Validate request
         $validated = $request->validate([
-            // Course validation
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
             'thumbnail_url' => 'nullable|file|image|mimes:jpeg,jpg,png,gif|max:5120',
@@ -1203,221 +1276,187 @@ class CourseController extends Controller
 
             // Modules validation
             'modules' => 'sometimes|array|min:1',
-            'modules.*.id' => 'nullable|exists:modules,id',
+            'modules.*.id' => 'nullable|integer',
             'modules.*.title' => 'sometimes|string|max:255',
             'modules.*.description' => 'nullable|string',
             'modules.*.order_index' => 'sometimes|integer|min:1',
-            'modules.*.action' => 'nullable|string|in:keep,delete',
 
-            // Videos validation
+            // Videos
             'modules.*.videos' => 'nullable|array',
-            'modules.*.videos.*.id' => 'nullable|exists:video_lessons,id',
+            'modules.*.videos.*.id' => 'nullable|integer',
             'modules.*.videos.*.title' => 'sometimes|string|max:255',
             'modules.*.videos.*.description' => 'nullable|string',
             'modules.*.videos.*.duration_hours' => 'nullable|numeric|min:0',
-            'modules.*.videos.*.file' => 'nullable|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:102400', // 100MB
+            'modules.*.videos.*.file' => 'nullable|file|mimetypes:video/mp4,video/avi,video/mov,video/quicktime|max:102400',
             'modules.*.videos.*.is_published' => 'nullable|boolean',
-            'modules.*.videos.*.action' => 'nullable|string|in:keep,update,delete',
         ]);
 
         DB::beginTransaction();
 
         try {
-            $course->load('modules.videoLessons');
+            $course = Course::findOrFail($id);
 
-            // Update course data
-            $course->update([
+            /** ---------------------------------------------------------
+             * 1. COURSE UPDATE
+             * -------------------------------------------------------- */
+            $course->fill([
                 'title' => $validated['title'] ?? $course->title,
                 'description' => $validated['description'] ?? $course->description,
                 'subject_id' => $validated['subject_id'] ?? $course->subject_id,
                 'price' => $validated['price'] ?? $course->price,
                 'old_price' => $validated['old_price'] ?? $course->old_price,
-                'is_published' => $validated['is_published'] ?? $course->is_published,
+                'is_published' => $request->is_published ?? $course->is_published,
             ]);
 
-
-            // Handle thumbnail update
+            // Thumbnail replace
             if ($request->hasFile('thumbnail_url')) {
-                // Delete old thumbnail if exists
                 if ($course->thumbnail_url && Storage::disk('public')->exists($course->thumbnail_url)) {
                     Storage::disk('public')->delete($course->thumbnail_url);
                 }
 
-                $thumbnail = $request->file('thumbnail_url');
-                $thumbnailName = time() . '_' . uniqid() . '.' . $thumbnail->getClientOriginalExtension();
-                $thumbnailPath = $thumbnail->storeAs('thumbnails', $thumbnailName, 'public');
-                $course->update(['thumbnail_url' => $thumbnailPath]);
+                $thumb = $request->file('thumbnail_url');
+                $thumbName = time() . '_' . uniqid() . '.' . $thumb->getClientOriginalExtension();
+                $thumbPath = $thumb->storeAs('thumbnails', $thumbName, 'public');
+
+                $course->thumbnail_url = $thumbPath;
             }
 
-            $updatedModules = [];
-            $uploadedVideos = 0;
+            $course->save();
 
-            // Get existing modules for cleanup tracking
-            $existingModuleIds = $course->modules->pluck('id')->toArray();
-            $keptModuleIds = [];
 
-            foreach ($validated['modules'] ?? [] as $moduleData) {
-                // Check if module should be deleted
-                if (isset($moduleData['action']) && $moduleData['action'] === 'delete') {
-                    if (!empty($moduleData['id'])) {
-                        $moduleToDelete = Module::find($moduleData['id']);
-                        if ($moduleToDelete) {
-                            // Delete all videos in this module
-                            foreach ($moduleToDelete->videoLessons as $video) {
-                                if ($video->video_path && Storage::disk('public')->exists($video->video_path)) {
-                                    Storage::disk('public')->delete($video->video_path);
-                                }
-                            }
-                            $moduleToDelete->videoLessons()->delete();
-                            $moduleToDelete->delete();
-                        }
-                    }
-                    continue;
-                }
-
-                // Update or create module
-                if (!empty($moduleData['id'])) {
-                    $module = Module::find($moduleData['id']);
-                    $module->update([
-                        'title' => $moduleData['title'],
-                        'description' => $moduleData['description'] ?? null,
-                        'order_index' => $moduleData['order_index'],
-                    ]);
-                } else {
-                    $module = Module::create([
-                        'course_id' => $course->id,
-                        'title' => $moduleData['title'],
-                        'description' => $moduleData['description'] ?? null,
-                        'order_index' => $moduleData['order_index'],
-                    ]);
-                }
-
-                $keptModuleIds[] = $module->id;
-                $updatedModules[] = $module;
-
-                // Handle videos
-                if (!empty($moduleData['videos'])) {
-                    $existingVideoIds = $module->videoLessons->pluck('id')->toArray();
-                    $keptVideoIds = [];
-
-                    foreach ($moduleData['videos'] ?? [] as $videoData) {
-                        $action = $videoData['action'] ?? 'keep';
-
-                        // Delete video
-                        if ($action === 'delete' && !empty($videoData['id'])) {
-                            $videoToDelete = VideoLesson::find($videoData['id']);
-                            if ($videoToDelete) {
-                                // Delete video file from storage
-                                if ($videoToDelete->video_path && Storage::disk('public')->exists($videoToDelete->video_path)) {
-                                    Storage::disk('public')->delete($videoToDelete->video_path);
-                                }
-                                $videoToDelete->delete();
-                            }
-                            continue;
-                        }
-
-                        // Update existing video
-                        if (!empty($videoData['id'])) {
-                            $videoLesson = VideoLesson::find($videoData['id']);
-                            
-                            // Update basic info
-                            $videoLesson->update([
-                                'title' => $videoData['title'],
-                                'description' => $videoData['description'] ?? null,
-                                'duration_hours' => $videoData['duration_hours'] ?? 0,
-                                'is_published' => $videoData['is_published'] ?? $videoLesson->is_published,
-                            ]);
-
-                            // Handle video file replacement
-                            if (!empty($videoData['file'])) {
-                                $videoFile = $videoData['file'];
-
-                                // Delete old video from storage (if exists)
-                                if ($videoLesson->video_path && Storage::disk('public')->exists($videoLesson->video_path)) {
-                                    Storage::disk('public')->delete($videoLesson->video_path);
-                                }
-
-                                // Save new video to public storage
-                                $videoFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                                $videoPath = $videoFile->storeAs(
-                                    'courses/' . $course->id . '/videos',
-                                    $videoFileName,
-                                    'public'
-                                );
-
-                                // Update video record
-                                $videoLesson->update([
-                                    'video_path' => $videoPath,
-                                    'filename' => $videoFile->getClientOriginalName(),
-                                    'file_size' => $videoFile->getSize(),
-                                    'mime_type' => $videoFile->getMimeType(),
-                                ]);
-
-                                $uploadedVideos++;
-                            }
-
-                            $keptVideoIds[] = $videoLesson->id;
-
-                        } else {
-                            // Create new video
-                            if (empty($videoData['file'])) {
-                                continue; // Skip if no file provided for new video
-                            }
-
-                            $videoFile = $videoData['file'];
-
-                            // Save video to public storage
-                            $videoFileName = time() . '_' . uniqid() . '.' . $videoFile->getClientOriginalExtension();
-                            $videoPath = $videoFile->storeAs(
-                                'courses/' . $course->id . '/videos',
-                                $videoFileName,
-                                'public'
-                            );
-
-                            // Create video lesson
-                            $videoLesson = VideoLesson::create([
-                                'module_id' => $module->id,
-                                'title' => $videoData['title'],
-                                'description' => $videoData['description'] ?? null,
-                                'duration_hours' => $videoData['duration_hours'] ?? 0,
-                                'video_path' => $videoPath,
-                                'filename' => $videoFile->getClientOriginalName(),
-                                'file_size' => $videoFile->getSize(),
-                                'mime_type' => $videoFile->getMimeType(),
-                                'is_published' => $videoData['is_published'] ?? false,
-                            ]);
-
-                            $uploadedVideos++;
-                            $keptVideoIds[] = $videoLesson->id;
-                        }
-                    }
-
-                    // Delete videos that were not kept
-                    $videosToDelete = array_diff($existingVideoIds, $keptVideoIds);
-                    if (!empty($videosToDelete)) {
-                        $deletedVideos = VideoLesson::whereIn('id', $videosToDelete)->get();
-                        foreach ($deletedVideos as $video) {
-                            if ($video->video_path && Storage::disk('public')->exists($video->video_path)) {
-                                Storage::disk('public')->delete($video->video_path);
-                            }
-                            $video->delete();
-                        }
-                    }
-                }
+            /** ---------------------------------------------------------
+             * 2. MODULES UPDATE + CREATE + DELETE
+             * -------------------------------------------------------- */
+            $existingModuleIds = $course->modules()->pluck('id')->toArray();
+            $incomingModuleIds = [];
+            
+            if (!empty($validated['modules'])) {
+                $incomingModuleIds = array_filter(array_column($validated['modules'], 'id'));
             }
 
-            // Delete modules that were not kept
-            $modulesToDelete = array_diff($existingModuleIds, $keptModuleIds);
+            // Delete removed modules
+            $modulesToDelete = array_diff($existingModuleIds, $incomingModuleIds);
             if (!empty($modulesToDelete)) {
-                $modules = Module::whereIn('id', $modulesToDelete)->get();
-                foreach ($modules as $mod) {
-                    foreach ($mod->videoLessons as $video) {
-                        if ($video->video_path && Storage::disk('public')->exists($video->video_path)) {
-                            Storage::disk('public')->delete($video->video_path);
+                Module::whereIn('id', $modulesToDelete)->delete();
+            }
+
+            $finalModules = [];
+            $finalVideos = [];
+
+            if (!empty($validated['modules'])) {
+                foreach ($validated['modules'] as $moduleData) {
+
+                    // UPDATE or CREATE
+                    if (!empty($moduleData['id'])) {
+                        $module = Module::find($moduleData['id']);
+                        
+                        if (!$module) {
+                            throw new \Exception("Module with ID {$moduleData['id']} not found");
+                        }
+                        
+                        $module->update([
+                            'title' => $moduleData['title'] ?? $module->title,
+                            'description' => $moduleData['description'] ?? $module->description,
+                            'order_index' => $moduleData['order_index'] ?? $module->order_index,
+                        ]);
+                    } else {
+                        $module = Module::create([
+                            'course_id' => $course->id,
+                            'title' => $moduleData['title'],
+                            'description' => $moduleData['description'] ?? null,
+                            'order_index' => $moduleData['order_index'] ?? 1,
+                        ]);
+                    }
+
+                    $finalModules[] = $module;
+
+
+                    /** -----------------------------------------------------
+                     * 3. VIDEOS UPDATE + CREATE + DELETE
+                     * ---------------------------------------------------- */
+                    $existingVideoIds = $module->videoLessons()->pluck('id')->toArray();
+                    $incomingVideoIds = [];
+
+                    if (!empty($moduleData['videos'])) {
+                        $incomingVideoIds = array_filter(array_column($moduleData['videos'], 'id'));
+                    }
+
+                    // Delete removed videos
+                    $videosToDelete = array_diff($existingVideoIds, $incomingVideoIds);
+                    if (!empty($videosToDelete)) {
+                        foreach ($videosToDelete as $vid) {
+                            $v = VideoLesson::find($vid);
+                            if ($v) {
+                                if ($v->video_path && Storage::disk('public')->exists($v->video_path)) {
+                                    Storage::disk('public')->delete($v->video_path);
+                                }
+                                $v->delete();
+                            }
                         }
                     }
-                    $mod->videoLessons()->delete();
-                    $mod->delete();
+
+                    // Handle create / update videos
+                    if (!empty($moduleData['videos'])) {
+                        foreach ($moduleData['videos'] as $videoData) {
+
+                            // ---------------- UPDATE EXISTING VIDEO ----------------
+                            if (!empty($videoData['id'])) {
+                                $videoLesson = VideoLesson::find($videoData['id']);
+
+                                if (!$videoLesson) {
+                                    throw new \Exception("Video with ID {$videoData['id']} not found");
+                                }
+
+                                // Replace file if new uploaded
+                                if (!empty($videoData['file']) && $videoData['file'] instanceof \Illuminate\Http\UploadedFile) {
+                                    if ($videoLesson->video_path && Storage::disk('public')->exists($videoLesson->video_path)) {
+                                        Storage::disk('public')->delete($videoLesson->video_path);
+                                    }
+
+                                    $file = $videoData['file'];
+                                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                                    $filePath = $file->storeAs('videos', $fileName, 'public');
+
+                                    $videoLesson->video_path = $filePath;
+                                    $videoLesson->filename = $fileName;
+                                    $videoLesson->file_size = $file->getSize();
+                                    $videoLesson->mime_type = $file->getMimeType();
+                                }
+
+                                // Update other fields
+                                $videoLesson->title = $videoData['title'] ?? $videoLesson->title;
+                                $videoLesson->description = $videoData['description'] ?? $videoLesson->description;
+                                $videoLesson->duration_hours = $videoData['duration_hours'] ?? $videoLesson->duration_hours;
+                                $videoLesson->is_published = $videoData['is_published'] ?? $videoLesson->is_published;
+                                $videoLesson->save();
+
+                            } else {
+                                // ---------------- CREATE NEW VIDEO ----------------
+                                // Check if file exists for new video
+                                if (empty($videoData['file']) || !($videoData['file'] instanceof \Illuminate\Http\UploadedFile)) {
+                                    throw new \Exception('Video file is required when creating new videos');
+                                }
+
+                                $file = $videoData['file'];
+                                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                                $filePath = $file->storeAs('videos', $fileName, 'public');
+
+                                $videoLesson = VideoLesson::create([
+                                    'module_id' => $module->id,
+                                    'title' => $videoData['title'],
+                                    'description' => $videoData['description'] ?? null,
+                                    'duration_hours' => $videoData['duration_hours'] ?? 0,
+                                    'video_path' => $filePath,
+                                    'filename' => $fileName,
+                                    'file_size' => $file->getSize(),
+                                    'mime_type' => $file->getMimeType(),
+                                    'is_published' => $videoData['is_published'] ?? true,
+                                ]);
+                            }
+
+                            $finalVideos[] = $videoLesson;
+                        }
+                    }
                 }
             }
 
@@ -1427,9 +1466,9 @@ class CourseController extends Controller
                 'success' => true,
                 'message' => 'Course updated successfully.',
                 'data' => [
-                    'course' => $course->fresh(['modules.videoLessons']),
-                    'modules_count' => count($updatedModules),
-                    'videos_uploaded' => $uploadedVideos,
+                    'course' => $course->load(['subject', 'modules.videoLessons']),
+                    'modules' => $finalModules,
+                    'videos' => $finalVideos
                 ]
             ]);
 
@@ -1441,6 +1480,7 @@ class CourseController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * @OA\Delete(

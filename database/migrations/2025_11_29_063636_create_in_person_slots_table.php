@@ -15,6 +15,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('subject_id')->nullable()->constrained('subjects')->onDelete('set null');
+
+            // Location
+            $table->string('country')->nullable();
+            $table->string('state')->nullable();
+            $table->string('city')->nullable();
+            $table->text('area')->nullable();
+
             $table->string('title');
             $table->decimal('price', 8, 2)->nullable();
             $table->text('description')->nullable();

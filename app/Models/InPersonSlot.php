@@ -9,6 +9,10 @@ class InPersonSlot extends Model
     protected $fillable = [
         'teacher_id',
         'subject_id',
+        'country',
+        'state',
+        'city',
+        'area',
         'title',
         'price',
         'description',

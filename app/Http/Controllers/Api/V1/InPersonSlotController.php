@@ -756,10 +756,10 @@ class InPersonSlotController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string',
-            'country' => 'required',
-            'state' => 'required',
-            'city' => 'required',
-            'area' => 'required|string|max:255',
+            'country' => 'nullable',
+            'state' => 'nullable',
+            'city' => 'nullable',
+            'area' => 'nullable|string|max:255',
             'subject_id' => 'required|exists:subjects,id',
             'from_date' => 'required|date',
             'to_date' => 'required|date|after_or_equal:from_date',
@@ -962,10 +962,10 @@ class InPersonSlotController extends Controller
     {
         $validated = $request->validate([
             'title' => 'sometimes|string',
-            'country' => 'sometimes',
-            'state' => 'sometimes',
-            'city' => 'sometimes',
-            'area' => 'sometimes|string|max:255',
+            'country' => 'nullable',
+            'state' => 'nullable',
+            'city' => 'nullable',
+            'area' => 'nullable|string|max:255',
             'subject_id' => 'sometimes|exists:subjects,id',
             'from_date' => 'sometimes|date',
             'to_date' => 'sometimes|date|after_or_equal:from_date',
